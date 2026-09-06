@@ -89,9 +89,33 @@ async function getClipVideoSource(clipUrl) {
   try {
     const page = await browser.newPage();
     await page.goto(clipUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    // Twitch renders the player asynchronously; this reads the media source from its video element.
     const video = page.locator('video').first();
     await video.waitFor({ state: 'attached', timeout: 20_000 });
+    await video.hover({ force: true });
+
+    const settingsButton = page.locator('[data-a-target="player-settings-button"]').first();
+    if (await settingsButton.isVisible({ timeout: 10_000 }).catch(() => false)) {
+      await settingsButton.click();
+      const qualityMenuItem = page.locator('[data-a-target="player-settings-menu-item-quality"]').first();
+      await qualityMenuItem.waitFor({ state: 'visible', timeout: 5_000 });
+      await qualityMenuItem.click();
+
+      const qualityOptions = page.locator('[data-a-target="player-settings-submenu-quality-option"]');
+      await qualityOptions.first().waitFor({ state: 'visible', timeout: 5_000 });
+      const options = await qualityOptions.evaluateAll((elements) => elements.map((element, index) => ({
+        index,
+        label: element.textContent?.trim() || '',
+      })));
+      const bestOption = options
+        .map((option) => ({ ...option, height: Number(option.label.match(/(\d{3,4})p/)?.[1] || 0) }))
+        .filter((option) => option.height > 0)
+        .sort((left, right) => right.height - left.height)[0];
+
+      if (bestOption) {
+        await qualityOptions.nth(bestOption.index).click();
+      }
+    }
+
     await page.waitForFunction(
       () => {
         const element = document.querySelector('video');
