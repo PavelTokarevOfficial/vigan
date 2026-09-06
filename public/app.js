@@ -55,10 +55,10 @@ function downloadCard(video) {
   const subtitle = document.createElement('button');
   subtitle.type = 'button';
   subtitle.className = 'download-button';
-  subtitle.textContent = video.subtitleState === 'ready' ? 'Пересоздать субтитры и видео' : 'Сделать субтитры и видео';
+  subtitle.textContent = 'Обработать видео';
   subtitle.addEventListener('click', async () => {
     subtitle.disabled = true;
-    subtitle.textContent = 'Создаём…';
+    subtitle.textContent = 'Обрабатываем…';
     downloadsStatus.classList.remove('error');
     downloadsStatus.textContent = `Whisper распознаёт речь и создаёт новое видео для ${video.name}…`;
     try {
@@ -69,7 +69,7 @@ function downloadCard(video) {
       await loadDownloads();
     } catch (error) {
       subtitle.disabled = false;
-      subtitle.textContent = 'Сделать субтитры и видео';
+      subtitle.textContent = 'Обработать видео';
       downloadsStatus.classList.add('error');
       downloadsStatus.textContent = error.message;
     }

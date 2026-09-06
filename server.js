@@ -14,10 +14,14 @@ const { chromium } = require('playwright');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
+const BANNER_IMAGE_PATH = path.join(__dirname, 'mock-src', 'baner.png');
+const BANNER_WIDTH_PERCENT = 0.8;
+const BANNER_TOP_OFFSET = 100;
 const WHISPER_MODEL_PATH = path.join(__dirname, 'models', 'ggml-tiny.bin');
 const FFMPEG_PATH = process.env.FFMPEG_PATH || (process.arch === 'arm64'
   ? '/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg'
   : '/usr/local/opt/ffmpeg-full/bin/ffmpeg');
+const FFMPEG_PRESET = process.env.FFMPEG_PRESET || 'ultrafast';
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.mkv']);
 const transcriptionJobs = new Set();
 const execFileAsync = promisify(execFile);
@@ -337,19 +341,43 @@ app.post('/api/downloads/:fileName/subtitles', async (req, res) => {
         '-m', WHISPER_MODEL_PATH,
         '-l', 'auto',
         '-osrt',
+        '-ml', '10',
+        '-sow',
         '-of', outputBasePath,
         '-f', temporaryAudioPath,
       ], { timeout: 15 * 60_000, maxBuffer: 1024 * 1024 });
+      const subtitleContent = await fs.readFile(subtitlePath, 'utf8');
+      await fs.writeFile(subtitlePath, subtitleContent.replace(/^\s+/gm, ''));
 
-      const videoWithSubtitlesPath = await unusedDownloadPath(`width-sub-${videoBaseName}.mp4`);
-      // SRT carries the cue timings; FFmpeg burns each cue into the center of the new video.
-      await execFileAsync(FFMPEG_PATH, [
-        '-y', '-i', videoPath,
-        '-vf', `subtitles=filename='${subtitlePath}':force_style='Alignment=5,Fontsize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2'`,
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
-        '-c:a', 'aac', '-movflags', '+faststart',
-        videoWithSubtitlesPath,
-      ], { timeout: 15 * 60_000, maxBuffer: 1024 * 1024 });
+      const videoWithSubtitlesPath = await unusedDownloadPath(`vertical-sub-${videoBaseName}.mp4`);
+      const temporaryVideoPath = path.join(DOWNLOADS_DIR, `.${videoBaseName}-${randomUUID()}.partial.mp4`);
+      // Fill the 9:16 canvas with a blurred dark copy, then place the sharp video over it.
+      const subtitleFilter = [
+        '[0:v]split=2[background][foreground];',
+        '[background]scale=1080:1920:force_original_aspect_ratio=increase,',
+        'crop=1080:1920,boxblur=25:10,eq=brightness=-0.2[background];',
+        '[foreground]scale=1080:-2:force_original_aspect_ratio=decrease[foreground];',
+        '[background][foreground]overlay=(W-w)/2:(H-h)/2[video];',
+        `[1:v]scale=${Math.round(1080 * BANNER_WIDTH_PERCENT)}:-1[banner];`,
+        `[video][banner]overlay=(W-w)/2:${BANNER_TOP_OFFSET},`,
+        `subtitles=filename='${subtitlePath}':force_style=`,
+        "'Alignment=2,MarginL=0,MarginR=0,MarginV=100,Fontsize=7,",
+        'WrapStyle=2,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,',
+        'BorderStyle=1,Outline=2',
+        "'",
+      ].join('');
+      try {
+        await execFileAsync(FFMPEG_PATH, [
+          '-y', '-i', videoPath, '-i', BANNER_IMAGE_PATH,
+          '-filter_complex', subtitleFilter,
+          '-c:v', 'libx264', '-preset', FFMPEG_PRESET, '-crf', '20',
+          '-c:a', 'aac', '-movflags', '+faststart',
+          temporaryVideoPath,
+        ], { timeout: 15 * 60_000, maxBuffer: 1024 * 1024 });
+        await fs.rename(temporaryVideoPath, videoWithSubtitlesPath);
+      } finally {
+        await fs.rm(temporaryVideoPath, { force: true });
+      }
 
       // Older MVP runs could have created these auxiliary files; SRT is now the single subtitle source.
       await Promise.all([

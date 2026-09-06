@@ -38,7 +38,7 @@ button:disabled { cursor: wait; opacity: .65; }
 .library code { color: #bf94ff; }
 .downloads-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
 .download-card { overflow: hidden; border: 1px solid #303034; border-radius: 8px; background: #18181b; }
-.download-card video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+.download-card video { display: block; width: 100%; background: #000; }
 .download-content { padding: 14px; }
 .download-content h3 { overflow-wrap: anywhere; margin: 0 0 8px; font-size: .95rem; }
 .download-content p { margin: 0 0 12px; color: #adadb8; font-size: .86rem; }
