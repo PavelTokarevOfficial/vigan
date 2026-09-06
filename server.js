@@ -6,11 +6,21 @@ const fs = require('fs/promises');
 const { createWriteStream } = require('fs');
 const { finished } = require('stream/promises');
 const { Readable } = require('stream');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const { randomUUID } = require('crypto');
 const { chromium } = require('playwright');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
+const WHISPER_MODEL_PATH = path.join(__dirname, 'models', 'ggml-tiny.bin');
+const FFMPEG_PATH = process.env.FFMPEG_PATH || (process.arch === 'arm64'
+  ? '/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg'
+  : '/usr/local/opt/ffmpeg-full/bin/ffmpeg');
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.mkv']);
+const transcriptionJobs = new Set();
+const execFileAsync = promisify(execFile);
 const { TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET } = process.env;
 
 let tokenCache = {
@@ -19,6 +29,44 @@ let tokenCache = {
 };
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/downloads', express.static(DOWNLOADS_DIR));
+
+function isVideoFile(fileName) {
+  return path.basename(fileName) === fileName && VIDEO_EXTENSIONS.has(path.extname(fileName).toLowerCase());
+}
+
+async function listDownloadedVideos() {
+  await fs.mkdir(DOWNLOADS_DIR, { recursive: true });
+  const entries = await fs.readdir(DOWNLOADS_DIR, { withFileTypes: true });
+  const videos = await Promise.all(entries
+    .filter((entry) => entry.isFile() && isVideoFile(entry.name))
+    .map(async (entry) => {
+      const info = await fs.stat(path.join(DOWNLOADS_DIR, entry.name));
+      const subtitleName = `${path.parse(entry.name).name}.srt`;
+      const srtName = `${path.parse(entry.name).name}.srt`;
+      try {
+        await fs.access(path.join(DOWNLOADS_DIR, srtName));
+        return {
+          name: entry.name,
+          size: info.size,
+          modifiedAt: info.mtime.toISOString(),
+          subtitleName,
+          subtitleState: 'ready',
+          srtName,
+        };
+      } catch {
+        return {
+          name: entry.name,
+          size: info.size,
+          modifiedAt: info.mtime.toISOString(),
+          subtitleName: null,
+          subtitleState: null,
+          srtName: null,
+        };
+      }
+    }));
+  return videos.sort((left, right) => new Date(right.modifiedAt) - new Date(left.modifiedAt));
+}
 
 function downloadFileName(clipId) {
   return `twitch-clip-${clipId.replace(/[^a-zA-Z0-9_-]/g, '_')}.mp4`;
@@ -222,6 +270,80 @@ app.post('/api/clips/:clipId/download', express.json(), async (req, res) => {
   } catch (error) {
     console.error('Clip download error:', error.message);
     return res.status(502).json({ error: error.message || 'Could not download the clip.' });
+  }
+});
+
+app.get('/api/downloads', async (_req, res) => {
+  try {
+    return res.json({ videos: await listDownloadedVideos() });
+  } catch (error) {
+    console.error('Downloads list error:', error.message);
+    return res.status(500).json({ error: 'Не удалось прочитать папку downloads.' });
+  }
+});
+
+app.post('/api/downloads/:fileName/subtitles', async (req, res) => {
+  const fileName = String(req.params.fileName || '');
+  if (!isVideoFile(fileName)) {
+    return res.status(400).json({ error: 'Недопустимое имя видеофайла.' });
+  }
+
+  const videoPath = path.join(DOWNLOADS_DIR, fileName);
+  const videoBaseName = path.parse(fileName).name;
+  const subtitleName = `${videoBaseName}.srt`;
+  const subtitlePath = path.join(DOWNLOADS_DIR, subtitleName);
+  const temporaryAudioPath = path.join(DOWNLOADS_DIR, `.${videoBaseName}-${randomUUID()}.wav`);
+
+  try {
+    await fs.access(videoPath);
+    await fs.access(WHISPER_MODEL_PATH);
+    if (transcriptionJobs.has(fileName)) {
+      return res.status(409).json({ error: 'Для этого видео уже создаются субтитры.' });
+    }
+
+    transcriptionJobs.add(fileName);
+    const outputBasePath = path.join(DOWNLOADS_DIR, videoBaseName);
+    try {
+      // Convert the downloaded video to mono WAV, then whisper.cpp writes the transcript as .txt beside it.
+      await execFileAsync(FFMPEG_PATH, ['-y', '-i', videoPath, '-ar', '16000', '-ac', '1', temporaryAudioPath], {
+        timeout: 120_000,
+        maxBuffer: 1024 * 1024,
+      });
+      await execFileAsync('whisper-cli', [
+        '-m', WHISPER_MODEL_PATH,
+        '-l', 'auto',
+        '-osrt',
+        '-of', outputBasePath,
+        '-f', temporaryAudioPath,
+      ], { timeout: 15 * 60_000, maxBuffer: 1024 * 1024 });
+
+      const videoWithSubtitlesPath = await unusedDownloadPath(`width-sub-${videoBaseName}.mp4`);
+      // SRT carries the cue timings; FFmpeg burns each cue into the center of the new video.
+      await execFileAsync(FFMPEG_PATH, [
+        '-y', '-i', videoPath,
+        '-vf', `subtitles=filename='${subtitlePath}':force_style='Alignment=5,Fontsize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2'`,
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+        '-c:a', 'aac', '-movflags', '+faststart',
+        videoWithSubtitlesPath,
+      ], { timeout: 15 * 60_000, maxBuffer: 1024 * 1024 });
+
+      // Older MVP runs could have created these auxiliary files; SRT is now the single subtitle source.
+      await Promise.all([
+        fs.rm(path.join(DOWNLOADS_DIR, `${videoBaseName}.txt`), { force: true }),
+        fs.rm(path.join(DOWNLOADS_DIR, `${videoBaseName}.vtt`), { force: true }),
+      ]);
+      return res.status(201).json({
+        message: `Готово: SRT и видео с субтитрами сохранены в downloads/${path.basename(videoWithSubtitlesPath)}.`,
+        subtitleName,
+        videoName: path.basename(videoWithSubtitlesPath),
+        exists: false,
+      });
+    } finally {
+      transcriptionJobs.delete(fileName);
+      await fs.rm(temporaryAudioPath, { force: true });
+    }
+  } catch {
+    return res.status(500).json({ error: 'Не удалось создать субтитры. Проверьте, что ffmpeg и whisper-cli установлены.' });
   }
 });
 

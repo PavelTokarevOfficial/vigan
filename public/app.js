@@ -9,6 +9,9 @@ const dateToInput = document.querySelector('#date-to');
 const dateFromWrap = document.querySelector('#date-from-wrap');
 const dateToWrap = document.querySelector('#date-to-wrap');
 const minViewsInput = document.querySelector('#min-views');
+const downloadsContainer = document.querySelector('#downloads');
+const downloadsStatus = document.querySelector('#library-status');
+const refreshDownloadsButton = document.querySelector('#refresh-downloads');
 
 let currentUsername = '';
 let nextCursor = null;
@@ -26,6 +29,72 @@ function formatDuration(seconds) {
   const minutes = Math.floor(totalSeconds / 60);
   const remainingSeconds = String(totalSeconds % 60).padStart(2, '0');
   return `${minutes}:${remainingSeconds}`;
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+}
+
+function downloadCard(video) {
+  const article = document.createElement('article');
+  article.className = 'download-card';
+
+  const player = document.createElement('video');
+  player.controls = true;
+  player.preload = 'metadata';
+  player.src = `/downloads/${encodeURIComponent(video.name)}`;
+
+  const content = document.createElement('div');
+  content.className = 'download-content';
+  const title = document.createElement('h3');
+  title.textContent = video.name;
+  const details = document.createElement('p');
+  details.textContent = `${formatFileSize(video.size)} · ${formatDate(video.modifiedAt)}${video.srtName ? ' · SRT готов' : ''}`;
+
+  const subtitle = document.createElement('button');
+  subtitle.type = 'button';
+  subtitle.className = 'download-button';
+  subtitle.textContent = video.subtitleState === 'ready' ? 'Пересоздать субтитры и видео' : 'Сделать субтитры и видео';
+  subtitle.addEventListener('click', async () => {
+    subtitle.disabled = true;
+    subtitle.textContent = 'Создаём…';
+    downloadsStatus.classList.remove('error');
+    downloadsStatus.textContent = `Whisper распознаёт речь и создаёт новое видео для ${video.name}…`;
+    try {
+      const response = await fetch(`/api/downloads/${encodeURIComponent(video.name)}/subtitles`, { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Не удалось создать субтитры.');
+      downloadsStatus.textContent = data.message;
+      await loadDownloads();
+    } catch (error) {
+      subtitle.disabled = false;
+      subtitle.textContent = 'Сделать субтитры и видео';
+      downloadsStatus.classList.add('error');
+      downloadsStatus.textContent = error.message;
+    }
+  });
+
+  content.append(title, details, subtitle);
+  article.append(player, content);
+  return article;
+}
+
+async function loadDownloads() {
+  refreshDownloadsButton.disabled = true;
+  try {
+    const response = await fetch('/api/downloads');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Не удалось загрузить список видео.');
+    downloadsContainer.replaceChildren(...data.videos.map(downloadCard));
+    downloadsStatus.classList.remove('error');
+    downloadsStatus.textContent = data.videos.length ? `Найдено видео: ${data.videos.length}.` : 'В папке downloads пока нет видео.';
+  } catch (error) {
+    downloadsStatus.classList.add('error');
+    downloadsStatus.textContent = error.message;
+  } finally {
+    refreshDownloadsButton.disabled = false;
+  }
 }
 
 function getDateRange() {
@@ -167,8 +236,11 @@ form.addEventListener('submit', (event) => {
 });
 
 periodSelect.addEventListener('change', updateDateInputs);
+refreshDownloadsButton.addEventListener('click', loadDownloads);
 
 loadMoreButton.addEventListener('click', () => {
   status.classList.remove('error');
   loadClips({ append: true });
 });
+
+loadDownloads();
