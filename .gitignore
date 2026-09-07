@@ -1,6 +1,8 @@
-node_modules/
 .env
-npm-debug.log*
-downloads/
 .DS_Store
-.DS_Store
+back/bin/
+front/node_modules/
+front/dist/
+front/src/**/*.js
+models/
+tmp/

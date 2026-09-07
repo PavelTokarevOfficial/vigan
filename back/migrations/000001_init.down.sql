@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS processing_jobs;
+DROP TABLE IF EXISTS media_files;
+DROP TABLE IF EXISTS banners;
+DROP TABLE IF EXISTS clips;
+DROP TABLE IF EXISTS streamers;
+DROP TYPE IF EXISTS job_status;
+DROP TYPE IF EXISTS job_type;
+DROP TYPE IF EXISTS media_type;
+DROP TYPE IF EXISTS clip_status;

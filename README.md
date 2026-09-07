@@ -1,55 +1,32 @@
-# Finde Clip
+# Finde Clip v2
 
-Простой локальный MVP для поиска клипов Twitch по нику стримера. Клип открывается на Twitch — скачивание в этом проекте не реализовано.
+Локальный modular monolith для импорта Twitch Clips и сборки вертикальных роликов с субтитрами.
 
-## Настройка Twitch API
+## Prerequisites
 
-1. Откройте [Twitch Developer Console](https://dev.twitch.tv/console/apps) и создайте приложение.
-2. Скопируйте **Client ID** и создайте **Client Secret**.
-3. Откройте файл `.env` в корне проекта и вставьте значения:
+- Docker Compose;
+- Go 1.24+;
+- Node.js 20+;
+- FFmpeg, Chromium и `whisper-cli` для worker;
+- локальная Whisper модель вне Git, например `models/ggml-tiny.bin`.
 
-```ini
-TWITCH_CLIENT_ID=your_client_id
-TWITCH_CLIENT_SECRET=your_client_secret
-PORT=3000
-```
-
-Client Secret используется только на сервере и не передаётся в браузер.
-
-## Запуск
+## Local setup
 
 ```bash
-npm install
-npm start
+cp .env.example .env
+docker compose up -d postgres minio
+cd back && go run ./cmd/api
+cd back && go run ./cmd/worker
+cd front && npm install && npm run dev
 ```
 
-Откройте [http://localhost:3000](http://localhost:3000).
+API применяет migrations при запуске. Frontend Vite доступен локально; он проксирует `/api` на `localhost:8080`. MinIO console: `http://localhost:9001`.
 
-Введите Twitch username, выберите период и при необходимости минимальное число просмотров, затем нажмите «Найти». Приложение загружает до 100 клипов за раз; при наличии следующей страницы появится кнопка «Загрузить ещё».
-
-Twitch API возвращает клипы по убыванию просмотров. Для клипов нет поля или фильтра рейтинга; минимальные просмотры фильтруются приложением после ответа Twitch.
-
-## Скачивание клипов
-
-Кнопка «Скачать» открывает страницу клипа через Playwright, получает `video.currentSrc` / `video.src` и сохраняет ответ в `downloads/`. Папка создаётся автоматически, а существующие файлы не перезаписываются: к имени добавляется числовой суффикс.
-
-## Локальный MVP субтитров
-
-Внизу главной страницы находится библиотека файлов из `downloads/`: видео можно просмотреть прямо в браузере. Кнопка «Обработать видео» запускает локальную транскрибацию через `whisper.cpp`, сохраняет один `.srt` с таймингами и создаёт рядом вертикальный mp4 1080x1920 с вшитыми субтитрами. Имя нового видео начинается с `vertical-sub-`. Подробнее: [docs/whisper-subtitles.md](docs/whisper-subtitles.md) и [docs/processing-performance.md](docs/processing-performance.md).
-
-Для запуска на новом Mac нужны готовые бинарники системных утилит. Python не требуется:
+## Checks
 
 ```bash
-brew install ffmpeg-full whisper-cpp
-export PATH="/opt/homebrew/opt/ffmpeg-full/bin:$PATH"
+cd back && go test ./...
+cd front && npm run build
 ```
 
-На Mac с Intel путь Homebrew будет `/usr/local/opt/ffmpeg-full/bin`. Добавьте соответствующую строку в `~/.zshrc`, чтобы не выполнять её перед каждым запуском, затем перезапустите приложение:
-
-```bash
-npm start
-```
-
-## Требования
-
-Node.js 18 или новее (используется встроенный `fetch`).
+Подробности: [architecture](docs/architecture.md), [backend](docs/backend.md), [frontend](docs/frontend.md), [database](docs/database.md), [media pipeline](docs/media-pipeline.md), [Whisper](docs/whisper.md). Текущий прогресс: [TASK_STATUS.md](TASK_STATUS.md).

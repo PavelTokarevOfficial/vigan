@@ -1,0 +1,15 @@
+# Backend
+
+`cmd/api` обслуживает REST API, применяет migrations и не запускает тяжёлые операции. `cmd/worker` claim-ит PostgreSQL jobs с `FOR UPDATE SKIP LOCKED` и запускает browser/media adapters.
+
+Основные маршруты: CRUD `/api/streamers`, удалённые Twitch clips `/api/streamers/{id}/clips`, импорт `/api/clips/import`, управление jobs `/api/clips/{id}/process` и `/retry`, наблюдение за очередью `/api/jobs` и `/api/jobs/{id}`, список готовых рендеров `/api/videos`, а также upload/list/delete `/api/banners`. `POST /process` принимает необязательный `bannerId`.
+
+External boundaries: `infrastructure/twitch`, `infrastructure/browser`, `infrastructure/storage`, `infrastructure/ffmpeg`, `infrastructure/whisper`. Application code использует ports в `internal/processing` и `internal/media`.
+
+S3 adapter не трактует произвольную ошибку как отсутствие файла: `Exists` распознаёт только типизированный S3 `NotFound`/`NoSuchKey` или HTTP 404. Это сохраняет идемпотентность pipeline и не скрывает проблемы сети или credentials.
+
+Конфигурация только через environment variables из `.env.example`. При локальном `cd back && go run ./cmd/api` или `go run ./cmd/worker` приложение автоматически читает `../.env` и заменяет Compose-hostnames `postgres`/`minio` на published `localhost` ports. В Docker имена сервисов остаются без изменений; Docker Compose передаёт свои переменные напрямую, и они имеют приоритет. API не возвращает stack traces или secrets. Повторный импорт существующего Twitch clip не создаёт ещё один download job; одновременно для одного clip допускается только один активный process job. При смене Twitch login cached Twitch user ID очищается и будет заново разрешён перед следующим запросом clips.
+
+Worker получает `SIGINT`/`SIGTERM` через context. Если контекст отменён во время job, job переводится обратно в `pending` с шагом `interrupted`, а не помечается как failed; последующий worker продолжит pipeline с уже сохранённых artifacts.
+
+Worker пишет JSON structured logs для начала, каждого шага (`download`, `extracting_audio`, `transcribing`, `rendering`), завершения, ошибки и длительности job. В полях лога есть `job_id`, `clip_id`, `step` и `progress`.

@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: finde, POSTGRES_USER: finde, POSTGRES_PASSWORD: finde }
+    ports: ["5432:5432"]
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U finde -d finde"], interval: 5s, timeout: 3s, retries: 20 }
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address :9001
+    environment: { MINIO_ROOT_USER: minioadmin, MINIO_ROOT_PASSWORD: minioadmin }
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio_data:/data]
+    healthcheck: { test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"], interval: 5s, timeout: 3s, retries: 20 }
+  api:
+    build: ./back
+    command: /app/api
+    env_file: .env
+    depends_on: { postgres: { condition: service_healthy }, minio: { condition: service_healthy } }
+    ports: ["8080:8080"]
+    volumes: ["${WHISPER_MODEL_HOST_PATH:-./models}:/models:ro"]
+  worker:
+    build: ./back
+    command: /app/worker
+    env_file: .env
+    depends_on: { postgres: { condition: service_healthy }, minio: { condition: service_healthy } }
+    volumes: ["${WHISPER_MODEL_HOST_PATH:-./models}:/models:ro"]
+volumes: { postgres_data: {}, minio_data: {} }
