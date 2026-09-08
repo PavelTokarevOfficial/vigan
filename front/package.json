@@ -1,1 +1,27 @@
-{"name":"finde-front","private":true,"version":"0.1.0","type":"module","scripts":{"dev":"vite","build":"vue-tsc -b && vite build"},"dependencies":{"@vitejs/plugin-vue":"^5.0.5","vue":"^3.5.13","vue-router":"^4.5.0","pinia":"^2.2.6"},"devDependencies":{"typescript":"^5.7.2","vite":"^6.0.5","vue-tsc":"^2.2.0","tailwindcss":"^4.0.0","@tailwindcss/vite":"^4.0.0"}}
+{
+    "name": "finde-front",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vue-tsc -b && vite build",
+        "format": "biome format --write src biome.json",
+        "lint": "biome lint src",
+        "check": "biome check src"
+    },
+    "dependencies": {
+        "@vitejs/plugin-vue": "^5.0.5",
+        "pinia": "^2.2.6",
+        "vue": "^3.5.13",
+        "vue-router": "^4.5.0"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^2.5.12",
+        "@tailwindcss/vite": "^4.0.0",
+        "tailwindcss": "^4.0.0",
+        "typescript": "^5.7.2",
+        "vite": "^6.0.5",
+        "vue-tsc": "^2.2.0"
+    }
+}

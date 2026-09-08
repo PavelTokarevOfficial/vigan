@@ -1,1 +1,21 @@
-{"root":["./src/app/main.ts","./src/app/router.ts","./src/entities/clip/model/types.ts","./src/entities/streamer/model/types.ts","./src/shared/api/http.ts","./src/app/app.vue","./src/features/clip-import/clipimportbutton.vue","./src/pages/bannerspage.vue","./src/pages/clipspage.vue","./src/pages/pipelinepage.vue","./src/pages/streamerspage.vue","./src/pages/videospage.vue","./src/shared/ui/appbutton.vue","./src/shared/ui/emptystate.vue","./src/shared/ui/errorstate.vue","./src/widgets/appheader.vue"],"version":"5.9.3"}
+{
+    "root": [
+        "./src/app/main.ts",
+        "./src/app/router.ts",
+        "./src/entities/clip/model/types.ts",
+        "./src/entities/streamer/model/types.ts",
+        "./src/shared/api/http.ts",
+        "./src/app/app.vue",
+        "./src/features/clip-import/clipimportbutton.vue",
+        "./src/pages/bannerspage.vue",
+        "./src/pages/clipspage.vue",
+        "./src/pages/pipelinepage.vue",
+        "./src/pages/streamerspage.vue",
+        "./src/pages/videospage.vue",
+        "./src/shared/ui/appbutton.vue",
+        "./src/shared/ui/emptystate.vue",
+        "./src/shared/ui/errorstate.vue",
+        "./src/widgets/appheader.vue"
+    ],
+    "version": "5.9.3"
+}

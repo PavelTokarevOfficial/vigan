@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import AppButton from '../../shared/ui/AppButton.vue'
+
 defineProps<{ saved: boolean; busy: boolean }>()
 defineEmits<{ save: [] }>()
 </script>
 
-<template><AppButton :disabled="saved || busy" @click="$emit('save')">{{ saved ? 'Сохранён' : 'Save' }}</AppButton></template>
+<template>
+  <AppButton :disabled="saved || busy" @click="$emit('save')">
+    {{ saved ? 'Сохранён' : 'Save' }}
+  </AppButton>
+</template>
