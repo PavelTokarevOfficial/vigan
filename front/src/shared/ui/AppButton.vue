@@ -3,14 +3,15 @@ withDefaults(
   defineProps<{
     variant?: 'primary' | 'danger' | 'secondary'
     disabled?: boolean
+    type?: 'button' | 'submit' | 'reset'
   }>(),
-  { variant: 'primary', disabled: false },
+  { variant: 'primary', disabled: false, type: 'button' },
 )
 </script>
 
 <template>
   <button
-    type="button"
+    :type="type"
     :disabled="disabled"
     :class="['app-button', `app-button--${variant}`]"
   >

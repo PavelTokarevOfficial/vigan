@@ -82,7 +82,7 @@ onMounted(load)
     <form class="my-6 flex gap-2" @submit.prevent="add">
       <input v-model="login" placeholder="twitch login" required>
       <input v-model="name" placeholder="Отображаемое имя" required>
-      <AppButton>Добавить</AppButton>
+      <AppButton type="submit">Добавить</AppButton>
     </form>
     <ErrorState v-if="error" :message="error" />
     <EmptyState v-if="!rows.length" message="Стримеров пока нет." />
@@ -97,7 +97,7 @@ onMounted(load)
         @submit.prevent="saveEdit"
       >
         <input v-model="editLogin" required><input v-model="editName" required>
-        <AppButton>Сохранить</AppButton>
+        <AppButton type="submit">Сохранить</AppButton>
         <AppButton type="button" variant="secondary" @click="editing = null"
           >Отмена</AppButton
         >

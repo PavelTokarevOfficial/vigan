@@ -48,7 +48,7 @@ onMounted(load)
         type="file"
         accept="image/*"
         @change="file=($event.target as HTMLInputElement).files?.[0]||null"
-      ><AppButton :disabled="!file">Загрузить</AppButton>
+      ><AppButton type="submit" :disabled="!file">Загрузить</AppButton>
     </form>
     <ErrorState v-if="error" :message="error" />
     <EmptyState v-if="!rows.length" message="Баннеров пока нет." />

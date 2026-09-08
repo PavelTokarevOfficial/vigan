@@ -31,7 +31,7 @@ func (a *Adapter) Render(ctx context.Context, in processing.RenderInput) error {
 		last = "withbanner"
 	}
 	// The subtitle filter consumes the local SRT created by Whisper; the result is burned into the MP4.
-	filter += fmt.Sprintf(";[%s]subtitles=filename='%s':force_style='Alignment=2,MarginV=100,Fontsize=32,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2'[out]", last, escapeFilterPath(in.SubtitlePath))
+	filter += fmt.Sprintf(";[%s]subtitles=filename='%s':force_style='Alignment=2,MarginV=100,Fontsize=8,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2'[out]", last, escapeFilterPath(in.SubtitlePath))
 	args = append(args, "-filter_complex", filter, "-map", "[out]", "-map", "0:a?", "-c:v", "libx264", "-preset", in.Preset, "-crf", "20", "-c:a", "aac", "-movflags", "+faststart", in.OutputPath)
 	return a.run(ctx, args...)
 }
