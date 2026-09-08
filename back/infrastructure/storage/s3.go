@@ -25,8 +25,8 @@ type S3 struct {
 	bucket  string
 }
 type Settings struct {
-	Endpoint, AccessKey, SecretKey, Bucket, Region string
-	UseSSL                                         bool
+	Endpoint, PublicEndpoint, AccessKey, SecretKey, Bucket, Region string
+	UseSSL                                                         bool
 }
 
 func New(ctx context.Context, s Settings) (*S3, error) {
@@ -45,7 +45,12 @@ func New(ctx context.Context, s Settings) (*S3, error) {
 		return nil, e
 	}
 	c := s3.NewFromConfig(cfg, func(o *s3.Options) { o.UsePathStyle = true })
-	return &S3{c, s3.NewPresignClient(c), s.Bucket}, nil
+	publicCfg, e := config.LoadDefaultConfig(ctx, config.WithRegion(s.Region), config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(s.AccessKey, s.SecretKey, "")), config.WithBaseEndpoint(s.PublicEndpoint), config.WithRequestChecksumCalculation(aws.RequestChecksumCalculationWhenRequired))
+	if e != nil {
+		return nil, e
+	}
+	publicClient := s3.NewFromConfig(publicCfg, func(o *s3.Options) { o.UsePathStyle = true })
+	return &S3{c, s3.NewPresignClient(publicClient), s.Bucket}, nil
 }
 func (s *S3) EnsureBucket(ctx context.Context) error {
 	_, e := s.client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(s.bucket)})

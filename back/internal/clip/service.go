@@ -53,7 +53,7 @@ func (s *Service) EnqueueProcess(ctx context.Context, id, bannerID string, retry
 	}
 	var jobID string
 	e := s.db.QueryRow(ctx, `INSERT INTO processing_jobs(clip_id,banner_id,type)
-		SELECT c.id,NULLIF($2,''),'process' FROM clips c
+		SELECT c.id,NULLIF($2,'')::uuid,'process' FROM clips c
 		WHERE c.id=$1
 		AND NOT EXISTS (SELECT 1 FROM processing_jobs j WHERE j.clip_id=c.id AND j.type='process' AND j.status IN ('pending','running'))
 		RETURNING id`, id, bannerID).Scan(&jobID)

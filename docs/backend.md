@@ -10,6 +10,8 @@ S3 adapter не трактует произвольную ошибку как о
 
 Конфигурация только через environment variables из `.env.example`. При локальном `cd back && go run ./cmd/api` или `go run ./cmd/worker` приложение автоматически читает `../.env` и заменяет Compose-hostnames `postgres`/`minio` на published `localhost` ports. В Docker имена сервисов остаются без изменений; Docker Compose передаёт свои переменные напрямую, и они имеют приоритет. API не возвращает stack traces или secrets. Повторный импорт существующего Twitch clip не создаёт ещё один download job; одновременно для одного clip допускается только один активный process job. При смене Twitch login cached Twitch user ID очищается и будет заново разрешён перед следующим запросом clips.
 
+S3 uses two endpoints: `S3_ENDPOINT` is the internal service address used by API/worker, while `S3_PUBLIC_ENDPOINT` is used only to sign browser URLs. In local Docker this is `http://localhost:9000`, not the internal `minio:9000` hostname.
+
 Worker получает `SIGINT`/`SIGTERM` через context. Если контекст отменён во время job, job переводится обратно в `pending` с шагом `interrupted`, а не помечается как failed; последующий worker продолжит pipeline с уже сохранённых artifacts.
 
 Worker пишет JSON structured logs для начала, каждого шага (`download`, `extracting_audio`, `transcribing`, `rendering`), завершения, ошибки и длительности job. В полях лога есть `job_id`, `clip_id`, `step` и `progress`.

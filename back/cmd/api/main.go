@@ -38,7 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
-	store, e := storage.New(ctx, storage.Settings{Endpoint: cfg.S3Endpoint, AccessKey: cfg.S3AccessKey, SecretKey: cfg.S3SecretKey, Bucket: cfg.S3Bucket, Region: cfg.S3Region, UseSSL: cfg.S3SSL})
+	store, e := storage.New(ctx, storage.Settings{Endpoint: cfg.S3Endpoint, PublicEndpoint: cfg.S3PublicEndpoint, AccessKey: cfg.S3AccessKey, SecretKey: cfg.S3SecretKey, Bucket: cfg.S3Bucket, Region: cfg.S3Region, UseSSL: cfg.S3SSL})
 	if e != nil {
 		log.Error("storage unavailable", "error", e)
 		os.Exit(1)

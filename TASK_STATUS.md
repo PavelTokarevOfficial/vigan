@@ -31,6 +31,8 @@
 - [x] Ready Videos API with S3 presigned URLs and frontend page.
 - [x] Worker persists source/audio/subtitle/render metadata in `media_files`.
 - [x] Pipeline reports actual ExtractAudio/Transcribe/Render progress through `processing_jobs.current_step`.
+- [x] Download completion preserves `downloaded` clip status, so the Pipeline UI exposes Process; a migration repairs older download-only clips.
+- [x] Process jobs accept an optional banner UUID; an empty selection is stored as SQL NULL.
 - [x] Runner idempotency unit test verifies retry skips existing source/audio/subtitle/render artifacts.
 - [x] Current API and worker Docker images rebuilt after backend changes (2026-09-07).
 - [x] S3-backed banner service foundation (list, upload, delete).

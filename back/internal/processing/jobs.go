@@ -65,11 +65,12 @@ func (j *Jobs) Step(ctx context.Context, id, clipID, step, status string, progre
 	_, e = j.db.Exec(ctx, "UPDATE clips SET status=$2,updated_at=now() WHERE id=$1", clipID, status)
 	return e
 }
-func (j *Jobs) Complete(ctx context.Context, id, clipID string) error {
-	if e := j.Step(ctx, id, clipID, "completed", "completed", 100); e != nil {
+func (j *Jobs) Complete(ctx context.Context, id, clipID, clipStatus string) error {
+	_, e := j.db.Exec(ctx, "UPDATE processing_jobs SET status='completed',current_step='completed',progress=100,finished_at=now(),updated_at=now() WHERE id=$1", id)
+	if e != nil {
 		return e
 	}
-	_, e := j.db.Exec(ctx, "UPDATE processing_jobs SET status='completed',finished_at=now(),updated_at=now() WHERE id=$1", id)
+	_, e = j.db.Exec(ctx, "UPDATE clips SET status=$2,updated_at=now() WHERE id=$1", clipID, clipStatus)
 	return e
 }
 func (j *Jobs) Fail(ctx context.Context, id, clipID, msg string) error {

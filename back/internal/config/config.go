@@ -11,17 +11,17 @@ import (
 )
 
 type Config struct {
-	HTTPAddr, DatabaseURL, S3Endpoint, S3AccessKey, S3SecretKey, S3Bucket, S3Region, TwitchClientID, TwitchClientSecret, FFMPEG, Whisper, WhisperModel, BrowserBin string
-	FFmpegPreset                                                                                                                                                   string
-	OutputWidth, OutputHeight, BackgroundBlur, BannerTop                                                                                                           int
-	BannerScale                                                                                                                                                    float64
-	S3SSL, BrowserHeadless                                                                                                                                         bool
+	HTTPAddr, DatabaseURL, S3Endpoint, S3PublicEndpoint, S3AccessKey, S3SecretKey, S3Bucket, S3Region, TwitchClientID, TwitchClientSecret, FFMPEG, Whisper, WhisperModel, BrowserBin string
+	FFmpegPreset                                                                                                                                                                     string
+	OutputWidth, OutputHeight, BackgroundBlur, BannerTop                                                                                                                             int
+	BannerScale                                                                                                                                                                      float64
+	S3SSL, BrowserHeadless                                                                                                                                                           bool
 }
 
 func Load() (Config, error) {
 	// Docker Compose injects env itself. Local `go run` loads the root .env without overriding exported values.
 	_ = godotenv.Load("../.env", ".env")
-	c := Config{HTTPAddr: get("HTTP_ADDR", ":8080"), DatabaseURL: os.Getenv("DATABASE_URL"), S3Endpoint: os.Getenv("S3_ENDPOINT"), S3AccessKey: os.Getenv("S3_ACCESS_KEY"), S3SecretKey: os.Getenv("S3_SECRET_KEY"), S3Bucket: os.Getenv("S3_BUCKET"), S3Region: get("S3_REGION", "us-east-1"), TwitchClientID: os.Getenv("TWITCH_CLIENT_ID"), TwitchClientSecret: os.Getenv("TWITCH_CLIENT_SECRET"), FFMPEG: get("FFMPEG_BIN_PATH", "ffmpeg"), Whisper: get("WHISPER_BIN_PATH", "whisper-cli"), WhisperModel: os.Getenv("WHISPER_MODEL_PATH"), BrowserBin: os.Getenv("BROWSER_BIN_PATH")}
+	c := Config{HTTPAddr: get("HTTP_ADDR", ":8080"), DatabaseURL: os.Getenv("DATABASE_URL"), S3Endpoint: os.Getenv("S3_ENDPOINT"), S3PublicEndpoint: get("S3_PUBLIC_ENDPOINT", "http://localhost:9000"), S3AccessKey: os.Getenv("S3_ACCESS_KEY"), S3SecretKey: os.Getenv("S3_SECRET_KEY"), S3Bucket: os.Getenv("S3_BUCKET"), S3Region: get("S3_REGION", "us-east-1"), TwitchClientID: os.Getenv("TWITCH_CLIENT_ID"), TwitchClientSecret: os.Getenv("TWITCH_CLIENT_SECRET"), FFMPEG: get("FFMPEG_BIN_PATH", "ffmpeg"), Whisper: get("WHISPER_BIN_PATH", "whisper-cli"), WhisperModel: os.Getenv("WHISPER_MODEL_PATH"), BrowserBin: os.Getenv("BROWSER_BIN_PATH")}
 	c.S3SSL, _ = strconv.ParseBool(get("S3_USE_SSL", "false"))
 	if !runningInContainer() {
 		// Compose service DNS names resolve only inside Docker; local `go run` uses published ports.
