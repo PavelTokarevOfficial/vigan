@@ -1,24 +1,39 @@
 <script setup lang="ts">
 const nav = [
-  ['/streamers', 'Стримеры'],
-  ['/search', 'Поиск клипов'],
-  ['/pipeline', 'Pipeline'],
+  { url: '/search', label: 'Поиск клипов' },
+  { url: '/pipeline', label: 'Pipeline' },
+  { url: '/streamers', label: 'Стримеры' },
+  {
+    url: 'http://localhost:9001/browser/finde-media',
+    label: 's3',
+    external: true,
+  },
 ]
 </script>
 
 <template>
   <header class="mb-8 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">vigan</h1>
+    <h1 class="text-2xl font-bold">vigun</h1>
     <nav class="flex gap-4">
-      <RouterLink
-        v-for="item in nav"
-        :key="item[0]"
-        :to="item[0]"
-        class="text-slate-600 hover:text-violet-700"
-        >{{
-          item[1]
-        }}</RouterLink
-      >
+      <template v-for="item in nav" :key="item.url">
+        <RouterLink
+          v-if="!item.external"
+          :to="item.url"
+          class="text-slate-600 hover:text-violet-700"
+        >
+          {{ item.label }}
+        </RouterLink>
+
+        <a
+          v-else
+          :href="item.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-slate-600 hover:text-violet-700"
+        >
+          {{ item.label }}
+        </a>
+      </template>
     </nav>
   </header>
 </template>
