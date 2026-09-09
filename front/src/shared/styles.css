@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 body {
   @apply m-0 bg-slate-50 text-slate-950 font-sans;
@@ -24,4 +27,16 @@ select {
 }
 .error-state {
   @apply mt-3 text-sm text-red-600;
+}
+
+/* Minimal tokens required by the local shadcn-vue dropdown component. */
+@theme {
+  --color-foreground: oklch(0.145 0 0);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0 0);
+  --color-accent: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.205 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);
+  --color-border: oklch(0.922 0 0);
+  --color-destructive: oklch(0.577 0.245 27.325);
 }

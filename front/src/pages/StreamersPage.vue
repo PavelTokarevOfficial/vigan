@@ -85,7 +85,7 @@ onMounted(load)
     <form class="my-6 flex max-w-xl flex-col gap-2" @submit.prevent="add">
       <textarea
         v-model="nicknames"
-        class='border border-violet-600 rounded-xl p-3'
+        class="border border-violet-600 rounded-xl p-3"
         rows="8"
         placeholder="chocokokko_&#10;KaiCenat&#10;xqc"
         required
