@@ -2,7 +2,7 @@
 
 `cmd/api` обслуживает REST API, применяет migrations и не запускает тяжёлые операции. `cmd/worker` claim-ит PostgreSQL jobs с `FOR UPDATE SKIP LOCKED` и запускает browser/media adapters.
 
-Основные маршруты: CRUD `/api/streamers`, удалённые Twitch clips `/api/streamers/{id}/clips`, импорт в избранное `/api/clips/import`, `POST /api/clips/{id}/download`, `POST /api/clips/{id}/process`, `POST /api/clips/{id}/retry`, `DELETE /api/clips/{id}`, наблюдение за очередью `/api/jobs` и `/api/jobs/{id}`, список готовых рендеров `/api/videos`. Команды enqueue не выполняют тяжёлую работу в HTTP handler: worker забирает созданную job из PostgreSQL.
+Основные маршруты: CRUD `/api/streamers`, пакетное добавление ников `POST /api/streamers/bulk`, удалённые Twitch clips `/api/streamers/{id}/clips`, импорт в избранное `/api/clips/import`, `POST /api/clips/{id}/download`, `POST /api/clips/{id}/process`, `POST /api/clips/{id}/retry`, `DELETE /api/clips/{id}`, наблюдение за очередью `/api/jobs` и `/api/jobs/{id}`, список готовых рендеров `/api/videos`. Команды enqueue не выполняют тяжёлую работу в HTTP handler: worker забирает созданную job из PostgreSQL.
 
 External boundaries: `infrastructure/twitch`, `infrastructure/browser`, `infrastructure/storage`, `infrastructure/ffmpeg`, `infrastructure/whisper`. Application code использует ports в `internal/processing` и `internal/media`.
 

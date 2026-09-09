@@ -3,6 +3,7 @@ package streamer
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"strings"
 )
@@ -44,6 +45,53 @@ func (s *Service) Create(ctx context.Context, login, name string) (Streamer, err
 	var x Streamer
 	e := s.db.QueryRow(ctx, "INSERT INTO streamers(twitch_login,display_name) VALUES($1,$2) RETURNING id,twitch_login,display_name,COALESCE(twitch_user_id,'')", login, name).Scan(&x.ID, &x.TwitchLogin, &x.DisplayName, &x.TwitchUserID)
 	return x, e
+}
+
+func (s *Service) CreateMany(ctx context.Context, logins []string) ([]Streamer, error) {
+	unique := make(map[string]struct{}, len(logins))
+	var normalized []string
+	for _, login := range logins {
+		login = strings.ToLower(strings.TrimSpace(login))
+		if login == "" {
+			continue
+		}
+		if _, exists := unique[login]; exists {
+			continue
+		}
+		unique[login] = struct{}{}
+		normalized = append(normalized, login)
+	}
+	if len(normalized) == 0 {
+		return nil, fmt.Errorf("at least one streamer nickname is required")
+	}
+	if len(normalized) > 100 {
+		return nil, fmt.Errorf("at most 100 streamer nicknames can be added at once")
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	created := make([]Streamer, 0, len(normalized))
+	for _, login := range normalized {
+		var row Streamer
+		err = tx.QueryRow(ctx, `INSERT INTO streamers(twitch_login,display_name)
+			VALUES($1,$1) ON CONFLICT(twitch_login) DO NOTHING
+			RETURNING id,twitch_login,display_name,COALESCE(twitch_user_id,'')`, login).Scan(&row.ID, &row.TwitchLogin, &row.DisplayName, &row.TwitchUserID)
+		if err == pgx.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		created = append(created, row)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return created, nil
 }
 func (s *Service) Update(ctx context.Context, id, login, name string) (Streamer, error) {
 	login = strings.ToLower(strings.TrimSpace(login))

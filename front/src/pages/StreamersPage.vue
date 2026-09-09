@@ -7,8 +7,9 @@ import { readData, readError } from '../shared/api/http'
 import type { Streamer } from '../entities/streamer/model/types'
 
 const rows = ref<Streamer[]>([]),
-  nickname = ref(''),
+  nicknames = ref(''),
   error = ref(''),
+  notice = ref(''),
   editing = ref<Streamer | null>(null),
   editNickname = ref('')
 
@@ -22,11 +23,12 @@ async function load() {
 
 async function add() {
   error.value = ''
+  notice.value = ''
 
-  const r = await fetch('/api/streamers', {
+  const r = await fetch('/api/streamers/bulk', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ twitchLogin: nickname.value }),
+    body: JSON.stringify({ twitchLogins: nicknames.value.split(/\r?\n/) }),
   })
 
   if (!r.ok) {
@@ -34,8 +36,12 @@ async function add() {
     return
   }
 
-  nickname.value = ''
-  load()
+  const data = await r.json()
+  notice.value = data.data.created
+    ? `Добавлено стримеров: ${data.data.created}.`
+    : 'Все указанные стримеры уже были добавлены.'
+  nicknames.value = ''
+  await load()
 }
 
 async function remove(id: string) {
@@ -73,16 +79,21 @@ onMounted(load)
 <template>
   <section>
     <h2 class="text-xl font-semibold">Стримеры</h2>
-    <p class="mt-1 text-slate-600">Добавьте ник Twitch для поиска клипов.</p>
-    <form class="my-6 flex gap-2" @submit.prevent="add">
-      <input
-        v-model="nickname"
-        placeholder="Ник стримера, например xqc"
+    <p class="mt-1 text-slate-600">
+      Добавьте один или несколько ников Twitch: каждый ник с новой строки.
+    </p>
+    <form class="my-6 flex max-w-xl flex-col gap-2" @submit.prevent="add">
+      <textarea
+        v-model="nicknames"
+        class='border border-violet-600 rounded-xl p-3'
+        rows="8"
+        placeholder="chocokokko_&#10;KaiCenat&#10;xqc"
         required
-      >
+      />
       <AppButton type="submit">Добавить</AppButton>
     </form>
     <ErrorState v-if="error" :message="error" />
+    <p v-if="notice" class="mb-4 text-sm text-emerald-700">{{ notice }}</p>
     <EmptyState v-if="!rows.length" message="Стримеров пока нет." />
     <article
       v-for="row in rows"

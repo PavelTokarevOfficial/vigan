@@ -30,6 +30,7 @@ func (a *API) Router() http.Handler {
 	r.Route("/api/streamers", func(r chi.Router) {
 		r.Get("/", a.list)
 		r.Post("/", a.create)
+		r.Post("/bulk", a.createMany)
 		r.Put("/{id}", a.update)
 		r.Delete("/{id}", a.delete)
 	})
@@ -151,6 +152,10 @@ type streamerInput struct {
 	DisplayName string `json:"displayName"`
 }
 
+type streamerBulkInput struct {
+	TwitchLogins []string `json:"twitchLogins"`
+}
+
 func (a *API) create(w http.ResponseWriter, r *http.Request) {
 	var in streamerInput
 	if json.NewDecoder(r.Body).Decode(&in) != nil {
@@ -163,6 +168,19 @@ func (a *API) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	write(w, 201, map[string]any{"data": x})
+}
+func (a *API) createMany(w http.ResponseWriter, r *http.Request) {
+	var in streamerBulkInput
+	if json.NewDecoder(r.Body).Decode(&in) != nil {
+		fail(w, 400, errText("invalid JSON"))
+		return
+	}
+	created, e := a.streamers.CreateMany(r.Context(), in.TwitchLogins)
+	if e != nil {
+		fail(w, 422, e)
+		return
+	}
+	write(w, 201, map[string]any{"data": map[string]any{"created": len(created)}})
 }
 func (a *API) update(w http.ResponseWriter, r *http.Request) {
 	var in streamerInput
