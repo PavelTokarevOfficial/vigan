@@ -124,7 +124,7 @@ func run(ctx context.Context, log *slog.Logger, j *processing.Jobs, files *media
 		return e
 	}
 	log.Info("job step", "job_id", job.ID, "clip_id", job.ClipID, "step", "processing_queued", "progress", 20)
-	out, e := r.Process(ctx, processing.Input{ClipID: job.ClipID, ClipURL: job.ClipURL, BannerKey: job.BannerKey, Width: cfg.OutputWidth, Height: cfg.OutputHeight, Blur: cfg.BackgroundBlur, BannerScale: cfg.BannerScale, BannerTop: cfg.BannerTop, Preset: cfg.FFmpegPreset, Progress: func(step, status string, percent int) error {
+	out, e := r.Process(ctx, processing.Input{ClipID: job.ClipID, ClipURL: job.ClipURL, Width: cfg.OutputWidth, Height: cfg.OutputHeight, Blur: cfg.BackgroundBlur, Preset: cfg.FFmpegPreset, Progress: func(step, status string, percent int) error {
 		log.Info("job step", "job_id", job.ID, "clip_id", job.ClipID, "step", step, "progress", percent)
 		return j.Step(ctx, job.ID, job.ClipID, step, status, percent)
 	}})

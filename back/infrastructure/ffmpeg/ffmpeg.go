@@ -23,15 +23,9 @@ func (a *Adapter) ExtractAudio(ctx context.Context, source, out string) error {
 }
 func (a *Adapter) Render(ctx context.Context, in processing.RenderInput) error {
 	filter := fmt.Sprintf("[0:v]split=2[bg][fg];[bg]scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d,boxblur=%d:10,eq=brightness=-0.2[bg];[fg]scale=%d:-2:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[base]", in.Width, in.Height, in.Width, in.Height, in.Blur, in.Width)
-	last := "base"
 	args := []string{"-y", "-i", in.SourcePath}
-	if in.BannerPath != "" {
-		args = append(args, "-i", in.BannerPath)
-		filter += fmt.Sprintf(";[1:v]scale=iw*%.3f:-2[banner];[%s][banner]overlay=(W-w)/2:%d[withbanner]", in.BannerScale, last, in.BannerTop)
-		last = "withbanner"
-	}
 	// The subtitle filter consumes the local SRT created by Whisper; the result is burned into the MP4.
-	filter += fmt.Sprintf(";[%s]subtitles=filename='%s':force_style='Alignment=2,MarginV=100,Fontsize=8,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2'[out]", last, escapeFilterPath(in.SubtitlePath))
+	filter += fmt.Sprintf(";[base]subtitles=filename='%s':force_style='Alignment=2,MarginV=100,Fontsize=8,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2'[out]", escapeFilterPath(in.SubtitlePath))
 	args = append(args, "-filter_complex", filter, "-map", "[out]", "-map", "0:a?", "-c:v", "libx264", "-preset", in.Preset, "-crf", "20", "-c:a", "aac", "-movflags", "+faststart", in.OutputPath)
 	return a.run(ctx, args...)
 }

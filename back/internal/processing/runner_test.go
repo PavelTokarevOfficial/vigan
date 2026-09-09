@@ -68,7 +68,7 @@ func (t *fakeTranscriber) Transcribe(_ context.Context, _, outputBase string) er
 func TestProcessSkipsExistingArtifactsOnRetry(t *testing.T) {
 	store, downloader, processor, transcriber := newMemoryStorage(), &fakeDownloader{}, &fakeMedia{}, &fakeTranscriber{}
 	runner := Runner{Storage: store, Downloader: downloader, Media: processor, Transcriber: transcriber}
-	in := Input{ClipID: "clip-1", ClipURL: "https://example.test/clip", Width: 1080, Height: 1920, Blur: 25, BannerScale: .8, Preset: "veryfast"}
+	in := Input{ClipID: "clip-1", ClipURL: "https://example.test/clip", Width: 1080, Height: 1920, Blur: 25, Preset: "veryfast"}
 
 	first, err := runner.Process(context.Background(), in)
 	if err != nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/finde-clip/finde-v2/back/infrastructure/storage"
 	"github.com/finde-clip/finde-v2/back/infrastructure/twitch"
-	"github.com/finde-clip/finde-v2/back/internal/banner"
 	"github.com/finde-clip/finde-v2/back/internal/clip"
 	"github.com/finde-clip/finde-v2/back/internal/config"
 	"github.com/finde-clip/finde-v2/back/internal/httpapi"
@@ -47,7 +46,7 @@ func main() {
 		log.Error("bucket unavailable", "error", e)
 		os.Exit(1)
 	}
-	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: httpapi.New(streamer.New(pool), clip.New(pool, twitch.New(cfg.TwitchClientID, cfg.TwitchClientSecret)), media.NewVideos(pool, store), banner.New(pool, store), processing.NewJobs(pool), log).Router(), ReadHeaderTimeout: 5 * time.Second}
+	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: httpapi.New(streamer.New(pool), clip.New(pool, twitch.New(cfg.TwitchClientID, cfg.TwitchClientSecret)), media.NewVideos(pool, store), processing.NewJobs(pool), log).Router(), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		log.Info("api started", "addr", cfg.HTTPAddr)
 		if e := srv.ListenAndServe(); e != nil && e != http.ErrServerClosed {

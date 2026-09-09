@@ -3,7 +3,6 @@ package httpapi
 import (
 	"encoding/json"
 	"github.com/finde-clip/finde-v2/back/infrastructure/twitch"
-	"github.com/finde-clip/finde-v2/back/internal/banner"
 	"github.com/finde-clip/finde-v2/back/internal/clip"
 	"github.com/finde-clip/finde-v2/back/internal/media"
 	"github.com/finde-clip/finde-v2/back/internal/processing"
@@ -11,20 +10,18 @@ import (
 	"github.com/go-chi/chi/v5"
 	"log/slog"
 	"net/http"
-	"strings"
 )
 
 type API struct {
 	streamers *streamer.Service
 	clips     *clip.Service
 	videos    *media.Videos
-	banners   *banner.Service
 	jobs      *processing.Jobs
 	log       *slog.Logger
 }
 
-func New(s *streamer.Service, c *clip.Service, v *media.Videos, b *banner.Service, j *processing.Jobs, l *slog.Logger) *API {
-	return &API{streamers: s, clips: c, videos: v, banners: b, jobs: j, log: l}
+func New(s *streamer.Service, c *clip.Service, v *media.Videos, j *processing.Jobs, l *slog.Logger) *API {
+	return &API{streamers: s, clips: c, videos: v, jobs: j, log: l}
 }
 func (a *API) Router() http.Handler {
 	r := chi.NewRouter()
@@ -43,9 +40,6 @@ func (a *API) Router() http.Handler {
 	r.Get("/api/jobs", a.listJobs)
 	r.Get("/api/jobs/{id}", a.getJob)
 	r.Get("/api/videos", a.readyVideos)
-	r.Get("/api/banners", a.listBanners)
-	r.Post("/api/banners", a.createBanner)
-	r.Delete("/api/banners/{id}", a.deleteBanner)
 	return r
 }
 func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
@@ -63,44 +57,6 @@ func (a *API) getJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	write(w, 200, map[string]any{"data": x})
-}
-func (a *API) listBanners(w http.ResponseWriter, r *http.Request) {
-	x, e := a.banners.List(r.Context())
-	if e != nil {
-		fail(w, 500, e)
-		return
-	}
-	write(w, 200, map[string]any{"data": x})
-}
-func (a *API) createBanner(w http.ResponseWriter, r *http.Request) {
-	if e := r.ParseMultipartForm(20 << 20); e != nil {
-		fail(w, 400, e)
-		return
-	}
-	f, h, e := r.FormFile("file")
-	if e != nil {
-		fail(w, 400, errText("file is required"))
-		return
-	}
-	defer f.Close()
-	mime := h.Header.Get("Content-Type")
-	if !strings.HasPrefix(mime, "image/") {
-		fail(w, 400, errText("banner must be an image"))
-		return
-	}
-	b, e := a.banners.Create(r.Context(), h.Filename, mime, h.Size, f)
-	if e != nil {
-		fail(w, 422, e)
-		return
-	}
-	write(w, 201, map[string]any{"data": b})
-}
-func (a *API) deleteBanner(w http.ResponseWriter, r *http.Request) {
-	if e := a.banners.Delete(r.Context(), chi.URLParam(r, "id")); e != nil {
-		fail(w, 422, e)
-		return
-	}
-	w.WriteHeader(204)
 }
 func (a *API) readyVideos(w http.ResponseWriter, r *http.Request) {
 	x, e := a.videos.List(r.Context())
@@ -150,23 +106,15 @@ func (a *API) localClips(w http.ResponseWriter, r *http.Request) {
 	write(w, 200, map[string]any{"data": x})
 }
 
-type processInput struct {
-	BannerID string `json:"bannerId"`
-}
-
 func (a *API) process(w http.ResponseWriter, r *http.Request) {
-	var in processInput
-	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&in)
-	}
-	if e := a.clips.EnqueueProcess(r.Context(), chi.URLParam(r, "id"), in.BannerID, false); e != nil {
+	if e := a.clips.EnqueueProcess(r.Context(), chi.URLParam(r, "id"), false); e != nil {
 		fail(w, 422, e)
 		return
 	}
 	write(w, 202, map[string]string{"status": "queued"})
 }
 func (a *API) retry(w http.ResponseWriter, r *http.Request) {
-	if e := a.clips.EnqueueProcess(r.Context(), chi.URLParam(r, "id"), "", true); e != nil {
+	if e := a.clips.EnqueueProcess(r.Context(), chi.URLParam(r, "id"), true); e != nil {
 		fail(w, 422, e)
 		return
 	}

@@ -17,11 +17,9 @@ type Transcriber interface {
 	Transcribe(context.Context, string, string) error
 }
 type RenderInput struct {
-	SourcePath, SubtitlePath, BannerPath, OutputPath string
-	Width, Height, Blur                              int
-	BannerScale                                      float64
-	BannerTop                                        int
-	Preset                                           string
+	SourcePath, SubtitlePath, OutputPath string
+	Width, Height, Blur                  int
+	Preset                               string
 }
 type Job struct {
 	ID, ClipID, Type string

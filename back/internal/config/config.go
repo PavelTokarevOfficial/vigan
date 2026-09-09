@@ -13,8 +13,7 @@ import (
 type Config struct {
 	HTTPAddr, DatabaseURL, S3Endpoint, S3PublicEndpoint, S3AccessKey, S3SecretKey, S3Bucket, S3Region, TwitchClientID, TwitchClientSecret, FFMPEG, Whisper, WhisperModel, BrowserBin string
 	FFmpegPreset                                                                                                                                                                     string
-	OutputWidth, OutputHeight, BackgroundBlur, BannerTop                                                                                                                             int
-	BannerScale                                                                                                                                                                      float64
+	OutputWidth, OutputHeight, BackgroundBlur                                                                                                                                        int
 	S3SSL, BrowserHeadless                                                                                                                                                           bool
 }
 
@@ -38,12 +37,6 @@ func Load() (Config, error) {
 		return c, err
 	}
 	if c.BackgroundBlur, err = getInt("BACKGROUND_BLUR", 25); err != nil {
-		return c, err
-	}
-	if c.BannerTop, err = getInt("BANNER_TOP", 100); err != nil {
-		return c, err
-	}
-	if c.BannerScale, err = getFloat("BANNER_SCALE", .8); err != nil {
 		return c, err
 	}
 	for k, v := range map[string]string{"DATABASE_URL": c.DatabaseURL, "S3_ENDPOINT": c.S3Endpoint, "S3_ACCESS_KEY": c.S3AccessKey, "S3_SECRET_KEY": c.S3SecretKey, "S3_BUCKET": c.S3Bucket, "TWITCH_CLIENT_ID": c.TwitchClientID, "TWITCH_CLIENT_SECRET": c.TwitchClientSecret} {

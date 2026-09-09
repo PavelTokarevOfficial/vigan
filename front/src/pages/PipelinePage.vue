@@ -13,31 +13,19 @@ type Clip = {
   currentStep: string
   progress: number
 }
-type Banner = { id: string; name: string }
 const clips = ref<Clip[]>([]),
-  banners = ref<Banner[]>([]),
-  bannerId = ref(''),
   error = ref('')
 async function load() {
-  const [clipResponse, bannerResponse] = await Promise.all([
-    fetch('/api/clips'),
-    fetch('/api/banners'),
-  ])
+  const clipResponse = await fetch('/api/clips')
   if (!clipResponse.ok) {
     error.value = 'Не удалось загрузить pipeline'
     return
   }
   clips.value = (await clipResponse.json()).data || []
-  banners.value = (await bannerResponse.json()).data || []
 }
 async function action(id: string, path: string) {
   const r = await fetch(`/api/clips/${id}/${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:
-      path === 'process'
-        ? JSON.stringify({ bannerId: bannerId.value })
-        : undefined,
   })
   if (!r.ok) {
     error.value =
@@ -58,15 +46,6 @@ onBeforeUnmount(() => {
   <section>
     <h2 class="text-xl font-semibold">Pipeline</h2>
     <p class="mt-2 text-slate-600">Импортированные клипы и фоновые jobs.</p>
-    <label class="mt-4 block text-sm"
-      >Баннер для нового рендера
-      <select v-model="bannerId" class="ml-2">
-        <option value="">Без баннера</option>
-        <option v-for="b in banners" :key="b.id" :value="b.id">
-          {{ b.name }}
-        </option>
-      </select></label
-    >
     <ErrorState v-if="error" :message="error" />
     <EmptyState
       v-if="!clips.length"

@@ -4,7 +4,6 @@ const nav = [
   ['/clips', 'Клипы'],
   ['/pipeline', 'Pipeline'],
   ['/videos', 'Видео'],
-  ['/banners', 'Баннеры'],
 ]
 </script>
 

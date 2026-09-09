@@ -44,7 +44,7 @@ func (s *Service) List(ctx context.Context) ([]Local, error) {
 	}
 	return out, rows.Err()
 }
-func (s *Service) EnqueueProcess(ctx context.Context, id, bannerID string, retry bool) error {
+func (s *Service) EnqueueProcess(ctx context.Context, id string, retry bool) error {
 	if retry {
 		_, e := s.db.Exec(ctx, "UPDATE clips SET status='downloaded',error=NULL,updated_at=now() WHERE id=$1", id)
 		if e != nil {
@@ -52,11 +52,11 @@ func (s *Service) EnqueueProcess(ctx context.Context, id, bannerID string, retry
 		}
 	}
 	var jobID string
-	e := s.db.QueryRow(ctx, `INSERT INTO processing_jobs(clip_id,banner_id,type)
-		SELECT c.id,NULLIF($2,'')::uuid,'process' FROM clips c
+	e := s.db.QueryRow(ctx, `INSERT INTO processing_jobs(clip_id,type)
+		SELECT c.id,'process' FROM clips c
 		WHERE c.id=$1
 		AND NOT EXISTS (SELECT 1 FROM processing_jobs j WHERE j.clip_id=c.id AND j.type='process' AND j.status IN ('pending','running'))
-		RETURNING id`, id, bannerID).Scan(&jobID)
+		RETURNING id`, id).Scan(&jobID)
 	if e == pgx.ErrNoRows {
 		return fmt.Errorf("clip does not exist or already has an active processing job")
 	}

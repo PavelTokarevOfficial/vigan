@@ -17,12 +17,10 @@ type Runner struct {
 	Transcriber Transcriber
 }
 type Input struct {
-	ClipID, ClipURL, BannerKey string
-	Width, Height, Blur        int
-	BannerScale                float64
-	BannerTop                  int
-	Preset                     string
-	Progress                   func(step, clipStatus string, percent int) error
+	ClipID, ClipURL     string
+	Width, Height, Blur int
+	Preset              string
+	Progress            func(step, clipStatus string, percent int) error
 }
 type Result struct{ SourceKey, AudioKey, SubtitleKey, RenderKey string }
 
@@ -32,10 +30,7 @@ func (r *Runner) Process(ctx context.Context, in Input) (Result, error) {
 		return Result{}, e
 	}
 	defer os.RemoveAll(d)
-	renderName := "without-banner"
-	if in.BannerKey != "" {
-		renderName = filepath.Base(in.BannerKey)
-	}
+	renderName := "vertical"
 	out := Result{SourceKey: "sources/" + in.ClipID + "/source.mp4", AudioKey: "audio/" + in.ClipID + "/audio.wav", SubtitleKey: "subtitles/" + in.ClipID + "/subtitles.srt", RenderKey: "renders/" + in.ClipID + "/" + renderName + ".mp4"}
 	src := filepath.Join(d, "source.mp4")
 	if e = r.ensureSource(ctx, in.ClipURL, out.SourceKey, src); e != nil {
@@ -83,14 +78,7 @@ func (r *Runner) Process(ctx context.Context, in Input) (Result, error) {
 			return out, e
 		}
 		render := filepath.Join(d, "final.mp4")
-		banner := ""
-		if in.BannerKey != "" {
-			banner = filepath.Join(d, "banner"+filepath.Ext(in.BannerKey))
-			if e = r.ensureLocal(ctx, in.BannerKey, banner); e != nil {
-				return out, fmt.Errorf("download banner: %w", e)
-			}
-		}
-		if e = r.Media.Render(ctx, RenderInput{SourcePath: src, SubtitlePath: sub, BannerPath: banner, OutputPath: render, Width: in.Width, Height: in.Height, Blur: in.Blur, BannerScale: in.BannerScale, BannerTop: in.BannerTop, Preset: in.Preset}); e != nil {
+		if e = r.Media.Render(ctx, RenderInput{SourcePath: src, SubtitlePath: sub, OutputPath: render, Width: in.Width, Height: in.Height, Blur: in.Blur, Preset: in.Preset}); e != nil {
 			return out, fmt.Errorf("render: %w", e)
 		}
 		if e = r.putFile(ctx, out.RenderKey, render, "video/mp4"); e != nil {

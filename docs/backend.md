@@ -2,7 +2,7 @@
 
 `cmd/api` обслуживает REST API, применяет migrations и не запускает тяжёлые операции. `cmd/worker` claim-ит PostgreSQL jobs с `FOR UPDATE SKIP LOCKED` и запускает browser/media adapters.
 
-Основные маршруты: CRUD `/api/streamers`, удалённые Twitch clips `/api/streamers/{id}/clips`, импорт `/api/clips/import`, управление jobs `/api/clips/{id}/process` и `/retry`, наблюдение за очередью `/api/jobs` и `/api/jobs/{id}`, список готовых рендеров `/api/videos`, а также upload/list/delete `/api/banners`. `POST /process` принимает необязательный `bannerId`.
+Основные маршруты: CRUD `/api/streamers`, удалённые Twitch clips `/api/streamers/{id}/clips`, импорт `/api/clips/import`, управление jobs `/api/clips/{id}/process` и `/retry`, наблюдение за очередью `/api/jobs` и `/api/jobs/{id}`, список готовых рендеров `/api/videos`. `POST /process` не требует body.
 
 External boundaries: `infrastructure/twitch`, `infrastructure/browser`, `infrastructure/storage`, `infrastructure/ffmpeg`, `infrastructure/whisper`. Application code использует ports в `internal/processing` и `internal/media`.
 

@@ -9,6 +9,5 @@ export default createRouter({
     { path: '/clips', component: () => import('../pages/ClipsPage.vue') },
     { path: '/pipeline', component: () => import('../pages/PipelinePage.vue') },
     { path: '/videos', component: () => import('../pages/VideosPage.vue') },
-    { path: '/banners', component: () => import('../pages/BannersPage.vue') },
   ],
 })

@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type ClaimedJob struct{ ID, ClipID, Type, ClipURL, BannerKey string }
+type ClaimedJob struct{ ID, ClipID, Type, ClipURL string }
 type Jobs struct{ db *pgxpool.Pool }
 
 type Info struct {
@@ -50,11 +50,11 @@ func (j *Jobs) Get(ctx context.Context, id string) (Info, error) {
 }
 func (j *Jobs) Claim(ctx context.Context) (ClaimedJob, error) {
 	var x ClaimedJob
-	e := j.db.QueryRow(ctx, `WITH next AS (SELECT id,clip_id,banner_id FROM processing_jobs WHERE status='pending' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1)
+	e := j.db.QueryRow(ctx, `WITH next AS (SELECT id,clip_id FROM processing_jobs WHERE status='pending' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1)
 		UPDATE processing_jobs j SET status='running',attempts=attempts+1,started_at=now(),updated_at=now()
-		FROM next JOIN clips c ON c.id=next.clip_id LEFT JOIN banners b ON b.id=next.banner_id
+		FROM next JOIN clips c ON c.id=next.clip_id
 		WHERE j.id=next.id
-		RETURNING j.id,j.clip_id,j.type,c.twitch_url,COALESCE(b.storage_key,'')`).Scan(&x.ID, &x.ClipID, &x.Type, &x.ClipURL, &x.BannerKey)
+		RETURNING j.id,j.clip_id,j.type,c.twitch_url`).Scan(&x.ID, &x.ClipID, &x.Type, &x.ClipURL)
 	return x, e
 }
 func (j *Jobs) Step(ctx context.Context, id, clipID, step, status string, progress int) error {
