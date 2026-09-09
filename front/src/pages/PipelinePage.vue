@@ -14,6 +14,7 @@ type Clip = {
   currentStep: string
   progress: number
   lastJobType: string
+  lastJobStatus: string
 }
 
 type Video = {
@@ -32,6 +33,7 @@ const videos = ref<Video[]>([])
 const error = ref('')
 const busy = ref('')
 const dragged = ref<Clip | null>(null)
+const queuedProcessIDs = ref(new Set<string>())
 
 const videosByClip = computed(
   () => new Map(videos.value.map((video) => [video.clipId, video])),
@@ -68,6 +70,14 @@ async function load() {
     }
     clips.value = (await clipResponse.json()).data || []
     videos.value = (await videoResponse.json()).data || []
+    const downloadedIDs = new Set(
+      clips.value
+        .filter((clip) => clip.status === 'downloaded')
+        .map((clip) => clip.id),
+    )
+    queuedProcessIDs.value = new Set(
+      [...queuedProcessIDs.value].filter((id) => downloadedIDs.has(id)),
+    )
   } catch (cause) {
     error.value =
       cause instanceof Error ? cause.message : 'Не удалось загрузить доску'
@@ -83,6 +93,8 @@ async function action(id: string, path: 'download' | 'process' | 'retry') {
       response,
       'Не удалось поставить задачу в очередь',
     )
+  } else if (path === 'process') {
+    queuedProcessIDs.value = new Set([...queuedProcessIDs.value, id])
   }
   busy.value = ''
   await load()
@@ -100,7 +112,19 @@ async function remove(clip: Clip) {
 }
 
 function canDelete(clip: Clip) {
-  return ['saved', 'downloaded', 'failed'].includes(clip.status)
+  return (
+    ['saved', 'downloaded', 'failed'].includes(clip.status) &&
+    !isProcessQueued(clip)
+  )
+}
+
+function isProcessQueued(clip: Clip) {
+  return (
+    clip.status === 'downloaded' &&
+    (queuedProcessIDs.value.has(clip.id) ||
+      (clip.lastJobType === 'process' &&
+        ['pending', 'running'].includes(clip.lastJobStatus)))
+  )
 }
 
 function drop(column: Column) {
@@ -111,13 +135,22 @@ function drop(column: Column) {
   if (column === 'downloaded' && clip.status === 'saved') {
     void action(clip.id, 'download')
   }
-  if (column === 'ready' && clip.status === 'downloaded') {
+  if (
+    column === 'ready' &&
+    clip.status === 'downloaded' &&
+    !isProcessQueued(clip)
+  ) {
     void action(clip.id, 'process')
   }
 }
 
 function statusText(clip: Clip) {
   if (clip.status === 'saved') return 'В избранном'
+  if (isProcessQueued(clip)) {
+    return clip.lastJobStatus === 'running'
+      ? `${clip.currentStep || 'Запуск обработки'} · ${clip.progress}%`
+      : 'В очереди на обработку'
+  }
   if (clip.status === 'downloaded') return 'Готов к обработке'
   if (clip.status === 'completed') return 'Готово'
   if (clip.status === 'failed') return 'Ошибка'
@@ -238,7 +271,7 @@ onBeforeUnmount(() => {
             </p>
             <div class="mt-3 flex flex-wrap gap-2">
               <AppButton
-                v-if="clip.status === 'downloaded'"
+                v-if="clip.status === 'downloaded' && !isProcessQueued(clip)"
                 :disabled="busy === clip.id"
                 @click="action(clip.id, 'process')"
               >

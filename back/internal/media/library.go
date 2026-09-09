@@ -36,6 +36,16 @@ func (l *Library) DeleteClip(ctx context.Context, clipID string) error {
 	if status != "saved" && status != "downloaded" && status != "failed" && status != "completed" {
 		return fmt.Errorf("only favorite, downloaded, failed, or completed clips can be deleted")
 	}
+	var hasActiveJob bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM processing_jobs
+		WHERE clip_id=$1 AND status IN ('pending','running')
+	)`, clipID).Scan(&hasActiveJob); err != nil {
+		return err
+	}
+	if hasActiveJob {
+		return fmt.Errorf("clip has an active job and cannot be deleted")
+	}
 
 	rows, err := tx.Query(ctx, "SELECT storage_key FROM media_files WHERE clip_id=$1", clipID)
 	if err != nil {

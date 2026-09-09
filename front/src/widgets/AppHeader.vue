@@ -28,7 +28,7 @@ const menuNavigation = [
   <header class="mb-8 flex items-center justify-between gap-4">
     <div class="flex items-center gap-6">
       <RouterLink to="/search" class="text-2xl font-bold text-slate-950">
-        <Logo class='max-w-[100px] h-auto'/>
+        <Logo class="max-w-[100px] h-auto" />
       </RouterLink>
 
       <nav class="flex items-center gap-4">

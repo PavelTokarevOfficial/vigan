@@ -13,23 +13,24 @@ type Service struct {
 	twitch *twitch.Client
 }
 type Local struct {
-	ID           string `json:"id"`
-	StreamerID   string `json:"streamerId"`
-	StreamerName string `json:"streamerName"`
-	Title        string `json:"title"`
-	ThumbnailURL string `json:"thumbnailUrl"`
-	Status       string `json:"status"`
-	Error        string `json:"error"`
-	CurrentStep  string `json:"currentStep"`
-	Progress     int    `json:"progress"`
-	LastJobType  string `json:"lastJobType"`
+	ID            string `json:"id"`
+	StreamerID    string `json:"streamerId"`
+	StreamerName  string `json:"streamerName"`
+	Title         string `json:"title"`
+	ThumbnailURL  string `json:"thumbnailUrl"`
+	Status        string `json:"status"`
+	Error         string `json:"error"`
+	CurrentStep   string `json:"currentStep"`
+	Progress      int    `json:"progress"`
+	LastJobType   string `json:"lastJobType"`
+	LastJobStatus string `json:"lastJobStatus"`
 }
 
 func (s *Service) List(ctx context.Context) ([]Local, error) {
 	rows, e := s.db.Query(ctx, `SELECT c.id,c.streamer_id,s.display_name,c.title,COALESCE(c.thumbnail_url,''),c.status,COALESCE(c.error,''),
-		COALESCE(j.current_step,''),COALESCE(j.progress,0),COALESCE(j.type::text,'')
+		COALESCE(j.current_step,''),COALESCE(j.progress,0),COALESCE(j.type::text,''),COALESCE(j.status::text,'')
 		FROM clips c JOIN streamers s ON s.id=c.streamer_id
-		LEFT JOIN LATERAL (SELECT current_step,progress,type FROM processing_jobs WHERE clip_id=c.id ORDER BY created_at DESC LIMIT 1) j ON true
+		LEFT JOIN LATERAL (SELECT current_step,progress,type,status FROM processing_jobs WHERE clip_id=c.id ORDER BY created_at DESC LIMIT 1) j ON true
 		ORDER BY c.created_at DESC`)
 	if e != nil {
 		return nil, e
@@ -38,7 +39,7 @@ func (s *Service) List(ctx context.Context) ([]Local, error) {
 	out := []Local{}
 	for rows.Next() {
 		var x Local
-		if e = rows.Scan(&x.ID, &x.StreamerID, &x.StreamerName, &x.Title, &x.ThumbnailURL, &x.Status, &x.Error, &x.CurrentStep, &x.Progress, &x.LastJobType); e != nil {
+		if e = rows.Scan(&x.ID, &x.StreamerID, &x.StreamerName, &x.Title, &x.ThumbnailURL, &x.Status, &x.Error, &x.CurrentStep, &x.Progress, &x.LastJobType, &x.LastJobStatus); e != nil {
 			return nil, e
 		}
 		out = append(out, x)
