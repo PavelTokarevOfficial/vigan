@@ -1,6 +1,6 @@
 # Database
 
-Schema is versioned by `golang-migrate` files in `back/migrations`. `streamers.twitch_login` and `clips.twitch_clip_id` are unique. Binary media is never stored in PostgreSQL: `media_files.storage_key` points to object storage. `processing_jobs` is the durable queue.
+Schema is versioned by `golang-migrate` files in `back/migrations`. `streamers.twitch_login` and `clips.twitch_clip_id` are unique. `streamers.priority` — неотрицательное целое число, по которому стримеры сортируются от более приоритетных к менее приоритетным. Binary media is never stored in PostgreSQL: `media_files.storage_key` points to object storage. `processing_jobs` is the durable queue.
 
 ## Processing jobs
 

@@ -37,6 +37,7 @@ func (a *API) Router() http.Handler {
 		r.Post("/", a.create)
 		r.Post("/bulk", a.createMany)
 		r.Put("/{id}", a.update)
+		r.Patch("/{id}/priority", a.adjustPriority)
 		r.Delete("/{id}", a.delete)
 	})
 	r.Get("/api/streamers/{id}/clips", a.remoteClips)
@@ -189,6 +190,9 @@ type streamerInput struct {
 type streamerBulkInput struct {
 	TwitchLogins []string `json:"twitchLogins"`
 }
+type streamerPriorityInput struct {
+	Priority int `json:"priority"`
+}
 
 func (a *API) create(w http.ResponseWriter, r *http.Request) {
 	var in streamerInput
@@ -223,6 +227,19 @@ func (a *API) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	x, e := a.streamers.Update(r.Context(), chi.URLParam(r, "id"), in.TwitchLogin, in.DisplayName)
+	if e != nil {
+		fail(w, 422, e)
+		return
+	}
+	write(w, 200, map[string]any{"data": x})
+}
+func (a *API) adjustPriority(w http.ResponseWriter, r *http.Request) {
+	var in streamerPriorityInput
+	if json.NewDecoder(r.Body).Decode(&in) != nil || in.Priority < 0 {
+		fail(w, 400, errText("priority must be a non-negative integer"))
+		return
+	}
+	x, e := a.streamers.SetPriority(r.Context(), chi.URLParam(r, "id"), in.Priority)
 	if e != nil {
 		fail(w, 422, e)
 		return

@@ -13,12 +13,13 @@ type Streamer struct {
 	TwitchLogin  string `json:"twitchLogin"`
 	DisplayName  string `json:"displayName"`
 	TwitchUserID string `json:"twitchUserId"`
+	Priority     int    `json:"priority"`
 }
 type Service struct{ db *pgxpool.Pool }
 
 func New(db *pgxpool.Pool) *Service { return &Service{db} }
 func (s *Service) List(ctx context.Context) ([]Streamer, error) {
-	rows, e := s.db.Query(ctx, "SELECT id,twitch_login,display_name,COALESCE(twitch_user_id,'') FROM streamers ORDER BY created_at DESC")
+	rows, e := s.db.Query(ctx, "SELECT id,twitch_login,display_name,COALESCE(twitch_user_id,''),priority FROM streamers ORDER BY priority DESC, created_at DESC")
 	if e != nil {
 		return nil, e
 	}
@@ -26,7 +27,7 @@ func (s *Service) List(ctx context.Context) ([]Streamer, error) {
 	r := []Streamer{}
 	for rows.Next() {
 		var x Streamer
-		if e = rows.Scan(&x.ID, &x.TwitchLogin, &x.DisplayName, &x.TwitchUserID); e != nil {
+		if e = rows.Scan(&x.ID, &x.TwitchLogin, &x.DisplayName, &x.TwitchUserID, &x.Priority); e != nil {
 			return nil, e
 		}
 		r = append(r, x)
@@ -43,7 +44,7 @@ func (s *Service) Create(ctx context.Context, login, name string) (Streamer, err
 		name = login
 	}
 	var x Streamer
-	e := s.db.QueryRow(ctx, "INSERT INTO streamers(twitch_login,display_name) VALUES($1,$2) RETURNING id,twitch_login,display_name,COALESCE(twitch_user_id,'')", login, name).Scan(&x.ID, &x.TwitchLogin, &x.DisplayName, &x.TwitchUserID)
+	e := s.db.QueryRow(ctx, "INSERT INTO streamers(twitch_login,display_name) VALUES($1,$2) RETURNING id,twitch_login,display_name,COALESCE(twitch_user_id,''),priority", login, name).Scan(&x.ID, &x.TwitchLogin, &x.DisplayName, &x.TwitchUserID, &x.Priority)
 	return x, e
 }
 
@@ -79,7 +80,7 @@ func (s *Service) CreateMany(ctx context.Context, logins []string) ([]Streamer, 
 		var row Streamer
 		err = tx.QueryRow(ctx, `INSERT INTO streamers(twitch_login,display_name)
 			VALUES($1,$1) ON CONFLICT(twitch_login) DO NOTHING
-			RETURNING id,twitch_login,display_name,COALESCE(twitch_user_id,'')`, login).Scan(&row.ID, &row.TwitchLogin, &row.DisplayName, &row.TwitchUserID)
+			RETURNING id,twitch_login,display_name,COALESCE(twitch_user_id,''),priority`, login).Scan(&row.ID, &row.TwitchLogin, &row.DisplayName, &row.TwitchUserID, &row.Priority)
 		if err == pgx.ErrNoRows {
 			continue
 		}
@@ -108,7 +109,18 @@ func (s *Service) Update(ctx context.Context, id, login, name string) (Streamer,
 			twitch_user_id=CASE WHEN twitch_login <> $2 THEN NULL ELSE twitch_user_id END,
 			updated_at=now()
 		WHERE id=$1
-		RETURNING id,twitch_login,display_name,COALESCE(twitch_user_id,'')`, id, login, name).Scan(&x.ID, &x.TwitchLogin, &x.DisplayName, &x.TwitchUserID)
+		RETURNING id,twitch_login,display_name,COALESCE(twitch_user_id,''),priority`, id, login, name).Scan(&x.ID, &x.TwitchLogin, &x.DisplayName, &x.TwitchUserID, &x.Priority)
+	return x, e
+}
+func (s *Service) SetPriority(ctx context.Context, id string, priority int) (Streamer, error) {
+	if priority < 0 {
+		return Streamer{}, fmt.Errorf("priority must be non-negative")
+	}
+	var x Streamer
+	e := s.db.QueryRow(ctx, `UPDATE streamers
+		SET priority=$2,updated_at=now()
+		WHERE id=$1
+		RETURNING id,twitch_login,display_name,COALESCE(twitch_user_id,''),priority`, id, priority).Scan(&x.ID, &x.TwitchLogin, &x.DisplayName, &x.TwitchUserID, &x.Priority)
 	return x, e
 }
 func (s *Service) Delete(ctx context.Context, id string) error {
