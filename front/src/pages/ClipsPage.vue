@@ -53,7 +53,10 @@ async function save(clip: TwitchClip) {
 
 <template>
   <section>
-    <h2 class="text-xl font-semibold">Клипы Twitch</h2>
+    <h2 class="text-xl font-semibold">Поиск клипов</h2>
+    <p class="mt-1 text-slate-600">
+      Найдите клипы по нику стримера и добавьте подходящие в избранное.
+    </p>
     <select v-model="selected" class="mt-5">
       <option value="">Выберите стримера</option>
       <option v-for="s in streamers" :key="s.id" :value="s.id">

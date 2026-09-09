@@ -34,8 +34,12 @@ func (s *Service) List(ctx context.Context) ([]Streamer, error) {
 }
 func (s *Service) Create(ctx context.Context, login, name string) (Streamer, error) {
 	login = strings.ToLower(strings.TrimSpace(login))
-	if login == "" || name == "" {
-		return Streamer{}, fmt.Errorf("login and display name are required")
+	name = strings.TrimSpace(name)
+	if login == "" {
+		return Streamer{}, fmt.Errorf("streamer nickname is required")
+	}
+	if name == "" {
+		name = login
 	}
 	var x Streamer
 	e := s.db.QueryRow(ctx, "INSERT INTO streamers(twitch_login,display_name) VALUES($1,$2) RETURNING id,twitch_login,display_name,COALESCE(twitch_user_id,'')", login, name).Scan(&x.ID, &x.TwitchLogin, &x.DisplayName, &x.TwitchUserID)
@@ -44,8 +48,11 @@ func (s *Service) Create(ctx context.Context, login, name string) (Streamer, err
 func (s *Service) Update(ctx context.Context, id, login, name string) (Streamer, error) {
 	login = strings.ToLower(strings.TrimSpace(login))
 	name = strings.TrimSpace(name)
-	if login == "" || name == "" {
-		return Streamer{}, fmt.Errorf("login and display name are required")
+	if login == "" {
+		return Streamer{}, fmt.Errorf("streamer nickname is required")
+	}
+	if name == "" {
+		name = login
 	}
 	var x Streamer
 	e := s.db.QueryRow(ctx, `UPDATE streamers

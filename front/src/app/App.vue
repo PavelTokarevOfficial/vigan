@@ -3,7 +3,7 @@ import AppHeader from '../widgets/AppHeader.vue'
 </script>
 
 <template>
-  <main class="mx-auto max-w-6xl p-6">
+  <main class="mx-auto p-6">
     <AppHeader />
     <RouterView />
   </main>

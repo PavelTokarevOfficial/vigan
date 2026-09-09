@@ -22,13 +22,14 @@ type Local struct {
 	Error        string `json:"error"`
 	CurrentStep  string `json:"currentStep"`
 	Progress     int    `json:"progress"`
+	LastJobType  string `json:"lastJobType"`
 }
 
 func (s *Service) List(ctx context.Context) ([]Local, error) {
 	rows, e := s.db.Query(ctx, `SELECT c.id,c.streamer_id,s.display_name,c.title,COALESCE(c.thumbnail_url,''),c.status,COALESCE(c.error,''),
-		COALESCE(j.current_step,''),COALESCE(j.progress,0)
+		COALESCE(j.current_step,''),COALESCE(j.progress,0),COALESCE(j.type::text,'')
 		FROM clips c JOIN streamers s ON s.id=c.streamer_id
-		LEFT JOIN LATERAL (SELECT current_step,progress FROM processing_jobs WHERE clip_id=c.id ORDER BY created_at DESC LIMIT 1) j ON true
+		LEFT JOIN LATERAL (SELECT current_step,progress,type FROM processing_jobs WHERE clip_id=c.id ORDER BY created_at DESC LIMIT 1) j ON true
 		ORDER BY c.created_at DESC`)
 	if e != nil {
 		return nil, e
@@ -37,30 +38,73 @@ func (s *Service) List(ctx context.Context) ([]Local, error) {
 	out := []Local{}
 	for rows.Next() {
 		var x Local
-		if e = rows.Scan(&x.ID, &x.StreamerID, &x.StreamerName, &x.Title, &x.ThumbnailURL, &x.Status, &x.Error, &x.CurrentStep, &x.Progress); e != nil {
+		if e = rows.Scan(&x.ID, &x.StreamerID, &x.StreamerName, &x.Title, &x.ThumbnailURL, &x.Status, &x.Error, &x.CurrentStep, &x.Progress, &x.LastJobType); e != nil {
 			return nil, e
 		}
 		out = append(out, x)
 	}
 	return out, rows.Err()
 }
-func (s *Service) EnqueueProcess(ctx context.Context, id string, retry bool) error {
-	if retry {
-		_, e := s.db.Exec(ctx, "UPDATE clips SET status='downloaded',error=NULL,updated_at=now() WHERE id=$1", id)
-		if e != nil {
-			return e
-		}
+func (s *Service) EnqueueDownload(ctx context.Context, id string) error {
+	var jobID string
+	e := s.db.QueryRow(ctx, `WITH queued AS (
+		INSERT INTO processing_jobs(clip_id,type)
+		SELECT c.id,'download' FROM clips c
+		WHERE c.id=$1 AND c.status='saved'
+		AND NOT EXISTS (SELECT 1 FROM processing_jobs j WHERE j.clip_id=c.id AND j.type='download' AND j.status IN ('pending','running'))
+		ON CONFLICT DO NOTHING
+		RETURNING clip_id
+	)
+	UPDATE clips c SET status='downloading',error=NULL,updated_at=now()
+	FROM queued WHERE c.id=queued.clip_id
+	RETURNING c.id`, id).Scan(&jobID)
+	if e == pgx.ErrNoRows {
+		return fmt.Errorf("clip is not in favorites or already has an active download")
 	}
+	return e
+}
+
+func (s *Service) EnqueueProcess(ctx context.Context, id string) error {
 	var jobID string
 	e := s.db.QueryRow(ctx, `INSERT INTO processing_jobs(clip_id,type)
 		SELECT c.id,'process' FROM clips c
-		WHERE c.id=$1
+		WHERE c.id=$1 AND c.status='downloaded'
 		AND NOT EXISTS (SELECT 1 FROM processing_jobs j WHERE j.clip_id=c.id AND j.type='process' AND j.status IN ('pending','running'))
+		ON CONFLICT DO NOTHING
 		RETURNING id`, id).Scan(&jobID)
 	if e == pgx.ErrNoRows {
-		return fmt.Errorf("clip does not exist or already has an active processing job")
+		return fmt.Errorf("clip is not downloaded or already has an active processing job")
 	}
 	return e
+}
+
+func (s *Service) Retry(ctx context.Context, id string) error {
+	var jobType string
+	e := s.db.QueryRow(ctx, `SELECT j.type::text
+		FROM clips c JOIN LATERAL (
+			SELECT type FROM processing_jobs WHERE clip_id=c.id ORDER BY created_at DESC LIMIT 1
+		) j ON true
+		WHERE c.id=$1 AND c.status='failed'`, id).Scan(&jobType)
+	if e == pgx.ErrNoRows {
+		return fmt.Errorf("only failed clips can be retried")
+	}
+	if e != nil {
+		return e
+	}
+
+	if jobType == "download" {
+		if _, e = s.db.Exec(ctx, "UPDATE clips SET status='saved',error=NULL,updated_at=now() WHERE id=$1", id); e != nil {
+			return e
+		}
+		return s.EnqueueDownload(ctx, id)
+	}
+	if jobType == "process" {
+		if _, e = s.db.Exec(ctx, "UPDATE clips SET status='downloaded',error=NULL,updated_at=now() WHERE id=$1", id); e != nil {
+			return e
+		}
+		return s.EnqueueProcess(ctx, id)
+	}
+	return fmt.Errorf("unknown job type %q", jobType)
 }
 
 func New(db *pgxpool.Pool, t *twitch.Client) *Service { return &Service{db, t} }
@@ -102,6 +146,5 @@ func (s *Service) Import(ctx context.Context, streamerID string, c twitch.Clip) 
 	if e != nil {
 		return "", e
 	}
-	_, e = s.db.Exec(ctx, "INSERT INTO processing_jobs(clip_id,type) VALUES($1,'download')", id)
-	return id, e
+	return id, nil
 }

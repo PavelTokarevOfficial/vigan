@@ -7,6 +7,6 @@ defineEmits<{ save: [] }>()
 
 <template>
   <AppButton :disabled="saved || busy" @click="$emit('save')">
-    {{ saved ? 'Сохранён' : 'Save' }}
+    {{ saved ? 'В избранном' : 'В избранное' }}
   </AppButton>
 </template>

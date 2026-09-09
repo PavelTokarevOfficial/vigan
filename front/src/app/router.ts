@@ -6,8 +6,8 @@ export default createRouter({
   routes: [
     { path: '/', redirect: '/streamers' },
     { path: '/streamers', component: StreamersPage },
-    { path: '/clips', component: () => import('../pages/ClipsPage.vue') },
+    { path: '/search', component: () => import('../pages/ClipsPage.vue') },
+    { path: '/clips', redirect: '/search' },
     { path: '/pipeline', component: () => import('../pages/PipelinePage.vue') },
-    { path: '/videos', component: () => import('../pages/VideosPage.vue') },
   ],
 })

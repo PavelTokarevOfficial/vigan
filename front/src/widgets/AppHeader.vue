@@ -1,15 +1,14 @@
 <script setup lang="ts">
 const nav = [
   ['/streamers', 'Стримеры'],
-  ['/clips', 'Клипы'],
+  ['/search', 'Поиск клипов'],
   ['/pipeline', 'Pipeline'],
-  ['/videos', 'Видео'],
 ]
 </script>
 
 <template>
   <header class="mb-8 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">Finde Clip</h1>
+    <h1 class="text-2xl font-bold">vigan</h1>
     <nav class="flex gap-4">
       <RouterLink
         v-for="item in nav"

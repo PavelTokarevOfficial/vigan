@@ -7,12 +7,10 @@ import { readData, readError } from '../shared/api/http'
 import type { Streamer } from '../entities/streamer/model/types'
 
 const rows = ref<Streamer[]>([]),
-  login = ref(''),
-  name = ref(''),
+  nickname = ref(''),
   error = ref(''),
   editing = ref<Streamer | null>(null),
-  editLogin = ref(''),
-  editName = ref('')
+  editNickname = ref('')
 
 async function load() {
   try {
@@ -28,7 +26,7 @@ async function add() {
   const r = await fetch('/api/streamers', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ twitchLogin: login.value, displayName: name.value }),
+    body: JSON.stringify({ twitchLogin: nickname.value }),
   })
 
   if (!r.ok) {
@@ -36,8 +34,7 @@ async function add() {
     return
   }
 
-  login.value = ''
-  name.value = ''
+  nickname.value = ''
   load()
 }
 
@@ -48,8 +45,7 @@ async function remove(id: string) {
 
 function startEdit(row: Streamer) {
   editing.value = row
-  editLogin.value = row.twitchLogin
-  editName.value = row.displayName
+  editNickname.value = row.twitchLogin
 }
 
 async function saveEdit() {
@@ -59,8 +55,7 @@ async function saveEdit() {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      twitchLogin: editLogin.value,
-      displayName: editName.value,
+      twitchLogin: editNickname.value,
     }),
   })
 
@@ -78,10 +73,13 @@ onMounted(load)
 <template>
   <section>
     <h2 class="text-xl font-semibold">Стримеры</h2>
-    <p class="mt-1 text-slate-600">Добавьте Twitch login для поиска клипов.</p>
+    <p class="mt-1 text-slate-600">Добавьте ник Twitch для поиска клипов.</p>
     <form class="my-6 flex gap-2" @submit.prevent="add">
-      <input v-model="login" placeholder="twitch login" required>
-      <input v-model="name" placeholder="Отображаемое имя" required>
+      <input
+        v-model="nickname"
+        placeholder="Ник стримера, например xqc"
+        required
+      >
       <AppButton type="submit">Добавить</AppButton>
     </form>
     <ErrorState v-if="error" :message="error" />
@@ -96,7 +94,7 @@ onMounted(load)
         class="flex flex-wrap gap-2"
         @submit.prevent="saveEdit"
       >
-        <input v-model="editLogin" required><input v-model="editName" required>
+        <input v-model="editNickname" required>
         <AppButton type="submit">Сохранить</AppButton>
         <AppButton type="button" variant="secondary" @click="editing = null"
           >Отмена</AppButton
@@ -104,8 +102,14 @@ onMounted(load)
       </form>
       <div v-else class="flex items-center justify-between">
         <div>
-          <b>{{ row.displayName }}</b
-          ><span class="ml-2 text-slate-500">{{ row.twitchLogin }}</span>
+          <b>{{ row.displayName }}</b>
+          <span
+            v-if="row.displayName !== row.twitchLogin"
+            class="ml-2 text-slate-500"
+            >{{
+              row.twitchLogin
+            }}</span
+          >
         </div>
         <div class="flex gap-2">
           <AppButton variant="secondary" @click="startEdit(row)"

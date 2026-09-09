@@ -15,13 +15,14 @@ import (
 type API struct {
 	streamers *streamer.Service
 	clips     *clip.Service
+	library   *media.Library
 	videos    *media.Videos
 	jobs      *processing.Jobs
 	log       *slog.Logger
 }
 
-func New(s *streamer.Service, c *clip.Service, v *media.Videos, j *processing.Jobs, l *slog.Logger) *API {
-	return &API{streamers: s, clips: c, videos: v, jobs: j, log: l}
+func New(s *streamer.Service, c *clip.Service, library *media.Library, v *media.Videos, j *processing.Jobs, l *slog.Logger) *API {
+	return &API{streamers: s, clips: c, library: library, videos: v, jobs: j, log: l}
 }
 func (a *API) Router() http.Handler {
 	r := chi.NewRouter()
@@ -35,6 +36,8 @@ func (a *API) Router() http.Handler {
 	r.Get("/api/streamers/{id}/clips", a.remoteClips)
 	r.Post("/api/clips/import", a.importClip)
 	r.Get("/api/clips", a.localClips)
+	r.Delete("/api/clips/{id}", a.deleteClip)
+	r.Post("/api/clips/{id}/download", a.download)
 	r.Post("/api/clips/{id}/process", a.process)
 	r.Post("/api/clips/{id}/retry", a.retry)
 	r.Get("/api/jobs", a.listJobs)
@@ -107,18 +110,32 @@ func (a *API) localClips(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) process(w http.ResponseWriter, r *http.Request) {
-	if e := a.clips.EnqueueProcess(r.Context(), chi.URLParam(r, "id"), false); e != nil {
+	if e := a.clips.EnqueueProcess(r.Context(), chi.URLParam(r, "id")); e != nil {
 		fail(w, 422, e)
 		return
 	}
 	write(w, 202, map[string]string{"status": "queued"})
 }
 func (a *API) retry(w http.ResponseWriter, r *http.Request) {
-	if e := a.clips.EnqueueProcess(r.Context(), chi.URLParam(r, "id"), true); e != nil {
+	if e := a.clips.Retry(r.Context(), chi.URLParam(r, "id")); e != nil {
 		fail(w, 422, e)
 		return
 	}
 	write(w, 202, map[string]string{"status": "queued"})
+}
+func (a *API) download(w http.ResponseWriter, r *http.Request) {
+	if e := a.clips.EnqueueDownload(r.Context(), chi.URLParam(r, "id")); e != nil {
+		fail(w, 422, e)
+		return
+	}
+	write(w, 202, map[string]string{"status": "queued"})
+}
+func (a *API) deleteClip(w http.ResponseWriter, r *http.Request) {
+	if e := a.library.DeleteClip(r.Context(), chi.URLParam(r, "id")); e != nil {
+		fail(w, 422, e)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 func (a *API) list(w http.ResponseWriter, r *http.Request) {
 	x, e := a.streamers.List(r.Context())

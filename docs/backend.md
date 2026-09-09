@@ -2,13 +2,15 @@
 
 `cmd/api` обслуживает REST API, применяет migrations и не запускает тяжёлые операции. `cmd/worker` claim-ит PostgreSQL jobs с `FOR UPDATE SKIP LOCKED` и запускает browser/media adapters.
 
-Основные маршруты: CRUD `/api/streamers`, удалённые Twitch clips `/api/streamers/{id}/clips`, импорт `/api/clips/import`, управление jobs `/api/clips/{id}/process` и `/retry`, наблюдение за очередью `/api/jobs` и `/api/jobs/{id}`, список готовых рендеров `/api/videos`. `POST /process` не требует body.
+Основные маршруты: CRUD `/api/streamers`, удалённые Twitch clips `/api/streamers/{id}/clips`, импорт в избранное `/api/clips/import`, `POST /api/clips/{id}/download`, `POST /api/clips/{id}/process`, `POST /api/clips/{id}/retry`, `DELETE /api/clips/{id}`, наблюдение за очередью `/api/jobs` и `/api/jobs/{id}`, список готовых рендеров `/api/videos`. Команды enqueue не выполняют тяжёлую работу в HTTP handler: worker забирает созданную job из PostgreSQL.
 
 External boundaries: `infrastructure/twitch`, `infrastructure/browser`, `infrastructure/storage`, `infrastructure/ffmpeg`, `infrastructure/whisper`. Application code использует ports в `internal/processing` и `internal/media`.
 
 S3 adapter не трактует произвольную ошибку как отсутствие файла: `Exists` распознаёт только типизированный S3 `NotFound`/`NoSuchKey` или HTTP 404. Это сохраняет идемпотентность pipeline и не скрывает проблемы сети или credentials.
 
-Конфигурация только через environment variables из `.env.example`. При локальном `cd back && go run ./cmd/api` или `go run ./cmd/worker` приложение автоматически читает `../.env` и заменяет Compose-hostnames `postgres`/`minio` на published `localhost` ports. В Docker имена сервисов остаются без изменений; Docker Compose передаёт свои переменные напрямую, и они имеют приоритет. API не возвращает stack traces или secrets. Повторный импорт существующего Twitch clip не создаёт ещё один download job; одновременно для одного clip допускается только один активный process job. При смене Twitch login cached Twitch user ID очищается и будет заново разрешён перед следующим запросом clips.
+Конфигурация только через environment variables из `.env.example`. При локальном `cd back && go run ./cmd/api` или `go run ./cmd/worker` приложение автоматически читает `../.env` и заменяет Compose-hostnames `postgres`/`minio` на published `localhost` ports. В Docker имена сервисов остаются без изменений; Docker Compose передаёт свои переменные напрямую, и они имеют приоритет. API не возвращает stack traces или secrets. Повторный импорт существующего Twitch clip оставляет его в избранном и не создаёт download job. Скачивание создаётся только отдельной командой; одновременно для одного clip допускается только один активный job каждого типа. При смене Twitch login cached Twitch user ID очищается и будет заново разрешён перед следующим запросом clips.
+
+Удаление избранного, скачанного, упавшего или готового клипа проходит через `media.Library`: сначала удаляются все ключи этого clip из S3-compatible storage, затем каскадно удаляются `clips`, `media_files` и `processing_jobs` в PostgreSQL. Нельзя удалить клип, который сейчас скачивается или обрабатывается.
 
 S3 uses two endpoints: `S3_ENDPOINT` is the internal service address used by API/worker, while `S3_PUBLIC_ENDPOINT` is used only to sign browser URLs. In local Docker this is `http://localhost:9000`, not the internal `minio:9000` hostname.
 
