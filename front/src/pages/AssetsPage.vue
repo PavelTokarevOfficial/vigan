@@ -106,7 +106,7 @@ onMounted(() => void manager.load())
 <template>
   <section>
     <h1 class="text-4xl font-semibold mb-10">Ассеты</h1>
-    
+
     <ErrorState v-if="error" :message="error" />
     <div class="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside class="rounded-xl border border-slate-200 bg-white p-3">
@@ -209,7 +209,7 @@ onMounted(() => void manager.load())
           class="mt-4"
           message="В этой папке пока нет файлов или вложенных папок."
         />
-        <div v-else class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div v-else class="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
           <button
             v-for="folder in visibleFolders"
             :key="folder.id"

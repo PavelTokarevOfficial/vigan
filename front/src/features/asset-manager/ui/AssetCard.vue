@@ -36,6 +36,7 @@ defineEmits<{
         :src="asset.url"
         muted
         preload="metadata"
+        draggable="false"
         class="aspect-video w-full bg-black object-contain"
       />
       <div
@@ -48,6 +49,7 @@ defineEmits<{
         v-else
         :src="asset.url"
         :alt="asset.name"
+        draggable="false"
         class="aspect-video w-full object-contain bg-slate-100"
       >
       <div class="p-3">
