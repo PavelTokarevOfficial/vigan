@@ -22,7 +22,11 @@ type Videos struct {
 
 func NewVideos(db *pgxpool.Pool, s Storage) *Videos { return &Videos{db, s} }
 func (v *Videos) List(ctx context.Context) ([]Video, error) {
-	rows, e := v.db.Query(ctx, `SELECT c.id,c.title,s.display_name,c.twitch_url,m.storage_key,m.created_at FROM clips c JOIN streamers s ON s.id=c.streamer_id JOIN media_files m ON m.clip_id=c.id AND m.type='render' ORDER BY m.created_at DESC`)
+	rows, e := v.db.Query(ctx, `SELECT * FROM (
+		SELECT DISTINCT ON (c.id) c.id,c.title,s.display_name,c.twitch_url,m.storage_key,m.created_at
+		FROM clips c JOIN streamers s ON s.id=c.streamer_id JOIN media_files m ON m.clip_id=c.id AND m.type='render'
+		ORDER BY c.id,m.created_at DESC
+	) latest ORDER BY created_at DESC`)
 	if e != nil {
 		return nil, e
 	}

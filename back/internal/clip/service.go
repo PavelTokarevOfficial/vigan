@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"github.com/finde-clip/finde-v2/back/infrastructure/twitch"
+	"github.com/finde-clip/finde-v2/back/internal/videotemplate"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Service struct {
-	db     *pgxpool.Pool
-	twitch *twitch.Client
+	db        *pgxpool.Pool
+	twitch    *twitch.Client
+	templates *videotemplate.Service
 }
 type Local struct {
 	ID            string `json:"id"`
@@ -65,14 +67,17 @@ func (s *Service) EnqueueDownload(ctx context.Context, id string) error {
 	return e
 }
 
-func (s *Service) EnqueueProcess(ctx context.Context, id string) error {
+func (s *Service) EnqueueProcess(ctx context.Context, id, templateID string) error {
+	snapshot, e := s.templates.Snapshot(ctx, templateID)
+	if e != nil {
+		return e
+	}
 	var jobID string
-	e := s.db.QueryRow(ctx, `INSERT INTO processing_jobs(clip_id,type)
-		SELECT c.id,'process' FROM clips c
+	e = s.db.QueryRow(ctx, `INSERT INTO processing_jobs(clip_id,type,template_id,template_snapshot)
+		SELECT c.id,'process',$2,$3 FROM clips c
 		WHERE c.id=$1 AND c.status='downloaded'
 		AND NOT EXISTS (SELECT 1 FROM processing_jobs j WHERE j.clip_id=c.id AND j.type='process' AND j.status IN ('pending','running'))
-		ON CONFLICT DO NOTHING
-		RETURNING id`, id).Scan(&jobID)
+		ON CONFLICT DO NOTHING RETURNING id`, id, templateID, snapshot).Scan(&jobID)
 	if e == pgx.ErrNoRows {
 		return fmt.Errorf("clip is not downloaded or already has an active processing job")
 	}
@@ -100,15 +105,36 @@ func (s *Service) Retry(ctx context.Context, id string) error {
 		return s.EnqueueDownload(ctx, id)
 	}
 	if jobType == "process" {
+		var templateID *string
+		var snapshot []byte
+		if e = s.db.QueryRow(ctx, `SELECT template_id,template_snapshot FROM processing_jobs WHERE clip_id=$1 AND type='process' ORDER BY created_at DESC LIMIT 1`, id).Scan(&templateID, &snapshot); e != nil {
+			return e
+		}
+		if templateID == nil || len(snapshot) == 0 {
+			defaultID, lookupErr := s.templates.DefaultID(ctx)
+			if lookupErr != nil {
+				return lookupErr
+			}
+			snapshot, e = s.templates.Snapshot(ctx, defaultID)
+			if e != nil {
+				return e
+			}
+			templateID = &defaultID
+		}
 		if _, e = s.db.Exec(ctx, "UPDATE clips SET status='downloaded',error=NULL,updated_at=now() WHERE id=$1", id); e != nil {
 			return e
 		}
-		return s.EnqueueProcess(ctx, id)
+		var queued string
+		e = s.db.QueryRow(ctx, `INSERT INTO processing_jobs(clip_id,type,template_id,template_snapshot)
+			SELECT id,'process',$2,$3 FROM clips WHERE id=$1 RETURNING id`, id, *templateID, snapshot).Scan(&queued)
+		return e
 	}
 	return fmt.Errorf("unknown job type %q", jobType)
 }
 
-func New(db *pgxpool.Pool, t *twitch.Client) *Service { return &Service{db, t} }
+func New(db *pgxpool.Pool, t *twitch.Client, templates *videotemplate.Service) *Service {
+	return &Service{db: db, twitch: t, templates: templates}
+}
 func (s *Service) Remote(ctx context.Context, streamerID string) ([]twitch.Clip, error) {
 	var tid, login string
 	if e := s.db.QueryRow(ctx, "SELECT COALESCE(twitch_user_id,''),twitch_login FROM streamers WHERE id=$1", streamerID).Scan(&tid, &login); e != nil {

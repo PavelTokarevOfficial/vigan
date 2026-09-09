@@ -2,7 +2,7 @@
 
 `cmd/api` обслуживает REST API, применяет migrations и не запускает тяжёлые операции. `cmd/worker` claim-ит PostgreSQL jobs с `FOR UPDATE SKIP LOCKED` и запускает browser/media adapters.
 
-Основные маршруты: CRUD `/api/streamers`, пакетное добавление ников `POST /api/streamers/bulk`, удалённые Twitch clips `/api/streamers/{id}/clips`, импорт в избранное `/api/clips/import`, `POST /api/clips/{id}/download`, `POST /api/clips/{id}/process`, `POST /api/clips/{id}/retry`, `DELETE /api/clips/{id}`, наблюдение за очередью `/api/jobs` и `/api/jobs/{id}`, список готовых рендеров `/api/videos`. Команды enqueue не выполняют тяжёлую работу в HTTP handler: worker забирает созданную job из PostgreSQL.
+Основные маршруты: CRUD `/api/streamers`, пакетное добавление ников `POST /api/streamers/bulk`, удалённые Twitch clips `/api/streamers/{id}/clips`, импорт в избранное `/api/clips/import`, `POST /api/clips/{id}/download`, `POST /api/clips/{id}/process`, `POST /api/clips/{id}/retry`, `DELETE /api/clips/{id}`, наблюдение за очередью `/api/jobs` и `/api/jobs/{id}`, список готовых рендеров `/api/videos`. Для шаблонов есть CRUD и `POST /api/templates/{id}/duplicate`; для ассетов — list/upload/rename/move/delete `/api/assets` и CRUD `/api/asset-folders`. Команды enqueue не выполняют тяжёлую работу в HTTP handler: worker забирает созданную job из PostgreSQL.
 
 External boundaries: `infrastructure/twitch`, `infrastructure/browser`, `infrastructure/storage`, `infrastructure/ffmpeg`, `infrastructure/whisper`. Application code использует ports в `internal/processing` и `internal/media`.
 
@@ -17,3 +17,5 @@ S3 uses two endpoints: `S3_ENDPOINT` is the internal service address used by API
 Worker получает `SIGINT`/`SIGTERM` через context. Если контекст отменён во время job, job переводится обратно в `pending` с шагом `interrupted`, а не помечается как failed; последующий worker продолжит pipeline с уже сохранённых artifacts.
 
 Worker пишет JSON structured logs для начала, каждого шага (`download`, `extracting_audio`, `transcribing`, `rendering`), завершения, ошибки и длительности job. В полях лога есть `job_id`, `clip_id`, `step` и `progress`.
+
+`POST /api/clips/{id}/process` требует JSON `{ "templateId": "UUID" }`. API валидирует template config и сохраняет snapshot вместе с job. Worker скачивает только S3 keys из snapshot во временную папку, строит filter graph из декларативных слоёв и передаёт его в FFmpeg adapter. В HTTP response никогда не попадают credentials или внутренний S3 endpoint.

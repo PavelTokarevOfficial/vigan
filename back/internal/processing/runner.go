@@ -3,6 +3,7 @@ package processing
 import (
 	"context"
 	"fmt"
+	"github.com/finde-clip/finde-v2/back/internal/composition"
 	"github.com/finde-clip/finde-v2/back/internal/media"
 	"io"
 	"os"
@@ -17,10 +18,11 @@ type Runner struct {
 	Transcriber Transcriber
 }
 type Input struct {
-	ClipID, ClipURL     string
-	Width, Height, Blur int
-	Preset              string
-	Progress            func(step, clipStatus string, percent int) error
+	JobID, ClipID, ClipURL string
+	Width, Height, Blur    int
+	Preset                 string
+	TemplateSnapshot       []byte
+	Progress               func(step, clipStatus string, percent int) error
 }
 type Result struct{ SourceKey, AudioKey, SubtitleKey, RenderKey string }
 
@@ -30,7 +32,10 @@ func (r *Runner) Process(ctx context.Context, in Input) (Result, error) {
 		return Result{}, e
 	}
 	defer os.RemoveAll(d)
-	renderName := "vertical"
+	renderName := in.JobID
+	if renderName == "" {
+		renderName = "vertical"
+	}
 	out := Result{SourceKey: "sources/" + in.ClipID + "/source.mp4", AudioKey: "audio/" + in.ClipID + "/audio.wav", SubtitleKey: "subtitles/" + in.ClipID + "/subtitles.srt", RenderKey: "renders/" + in.ClipID + "/" + renderName + ".mp4"}
 	src := filepath.Join(d, "source.mp4")
 	if e = r.ensureSource(ctx, in.ClipURL, out.SourceKey, src); e != nil {
@@ -77,8 +82,12 @@ func (r *Runner) Process(ctx context.Context, in Input) (Result, error) {
 		if e = r.ensureLocal(ctx, out.SubtitleKey, sub); e != nil {
 			return out, e
 		}
+		config, assets, e := r.templateFiles(ctx, in, d)
+		if e != nil {
+			return out, e
+		}
 		render := filepath.Join(d, "final.mp4")
-		if e = r.Media.Render(ctx, RenderInput{SourcePath: src, SubtitlePath: sub, OutputPath: render, Width: in.Width, Height: in.Height, Blur: in.Blur, Preset: in.Preset}); e != nil {
+		if e = r.Media.Render(ctx, RenderInput{SourcePath: src, SubtitlePath: sub, OutputPath: render, Width: in.Width, Height: in.Height, Blur: in.Blur, Preset: in.Preset, Composition: config, AssetPaths: assets}); e != nil {
 			return out, fmt.Errorf("render: %w", e)
 		}
 		if e = r.putFile(ctx, out.RenderKey, render, "video/mp4"); e != nil {
@@ -86,6 +95,31 @@ func (r *Runner) Process(ctx context.Context, in Input) (Result, error) {
 		}
 	}
 	return out, nil
+}
+
+// templateFiles resolves the immutable asset keys from the job snapshot, never
+// from the mutable template record. The FFmpeg adapter only receives local paths.
+func (r *Runner) templateFiles(ctx context.Context, in Input, dir string) (composition.Config, map[string]string, error) {
+	config := composition.Default(in.Width, in.Height, in.Blur)
+	if len(in.TemplateSnapshot) == 0 {
+		return config, map[string]string{}, nil
+	}
+	snapshot, err := composition.ParseSnapshot(in.TemplateSnapshot)
+	if err != nil {
+		return composition.Config{}, nil, err
+	}
+	paths := make(map[string]string, len(snapshot.Assets))
+	for index, asset := range snapshot.Assets {
+		if asset.ID == "" || asset.StorageKey == "" {
+			return composition.Config{}, nil, fmt.Errorf("template snapshot contains an invalid asset")
+		}
+		path := filepath.Join(dir, fmt.Sprintf("asset-%d", index))
+		if err := r.ensureLocal(ctx, asset.StorageKey, path); err != nil {
+			return composition.Config{}, nil, fmt.Errorf("download template asset %s: %w", asset.ID, err)
+		}
+		paths[asset.ID] = path
+	}
+	return snapshot.Config, paths, nil
 }
 
 func report(in Input, step, clipStatus string, percent int) error {

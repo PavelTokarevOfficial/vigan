@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppButton from '../shared/ui/AppButton.vue'
 import ErrorState from '../shared/ui/ErrorState.vue'
 import { readError } from '../shared/api/http'
+import type { VideoTemplate } from '../entities/template/model/types'
 
 type Clip = {
   id: string
@@ -34,6 +35,9 @@ const error = ref('')
 const busy = ref('')
 const dragged = ref<Clip | null>(null)
 const queuedProcessIDs = ref(new Set<string>())
+const processClipID = ref<string | null>(null)
+const templates = ref<VideoTemplate[]>([])
+const templatesLoading = ref(false)
 
 const videosByClip = computed(
   () => new Map(videos.value.map((video) => [video.clipId, video])),
@@ -84,10 +88,22 @@ async function load() {
   }
 }
 
-async function action(id: string, path: 'download' | 'process' | 'retry') {
+async function action(
+  id: string,
+  path: 'download' | 'process' | 'retry',
+  templateID?: string,
+) {
   busy.value = id
   error.value = ''
-  const response = await fetch(`/api/clips/${id}/${path}`, { method: 'POST' })
+  const response = await fetch(`/api/clips/${id}/${path}`, {
+    method: 'POST',
+    ...(path === 'process'
+      ? {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ templateId: templateID }),
+        }
+      : {}),
+  })
   if (!response.ok) {
     error.value = await readError(
       response,
@@ -98,6 +114,35 @@ async function action(id: string, path: 'download' | 'process' | 'retry') {
   }
   busy.value = ''
   await load()
+}
+
+async function openTemplateChooser(id: string) {
+  error.value = ''
+  templatesLoading.value = true
+  processClipID.value = id
+  try {
+    const response = await fetch('/api/templates')
+    if (!response.ok)
+      throw new Error(await readError(response, 'Не удалось загрузить шаблоны'))
+    templates.value = (await response.json()).data || []
+    if (!templates.value.length) {
+      error.value = 'Сначала создайте хотя бы один шаблон видео.'
+      processClipID.value = null
+    }
+  } catch (cause) {
+    error.value =
+      cause instanceof Error ? cause.message : 'Не удалось загрузить шаблоны'
+    processClipID.value = null
+  } finally {
+    templatesLoading.value = false
+  }
+}
+
+async function chooseTemplate(templateID: string) {
+  const id = processClipID.value
+  if (!id) return
+  await action(id, 'process', templateID)
+  processClipID.value = null
 }
 
 async function remove(clip: Clip) {
@@ -140,7 +185,7 @@ function drop(column: Column) {
     clip.status === 'downloaded' &&
     !isProcessQueued(clip)
   ) {
-    void action(clip.id, 'process')
+    void openTemplateChooser(clip.id)
   }
 }
 
@@ -273,7 +318,7 @@ onBeforeUnmount(() => {
               <AppButton
                 v-if="clip.status === 'downloaded' && !isProcessQueued(clip)"
                 :disabled="busy === clip.id"
-                @click="action(clip.id, 'process')"
+                @click="openTemplateChooser(clip.id)"
               >
                 В работу
               </AppButton>
@@ -351,6 +396,69 @@ onBeforeUnmount(() => {
               Удалить
             </AppButton>
           </article>
+        </div>
+      </section>
+    </div>
+
+    <div
+      v-if="processClipID"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="template-dialog-title"
+    >
+      <section
+        class="max-h-[85vh] w-full max-w-3xl overflow-auto rounded-xl bg-white p-5 shadow-2xl"
+      >
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="template-dialog-title" class="text-lg font-semibold">
+              Выберите шаблон
+            </h2>
+            <p class="mt-1 text-sm text-slate-600">
+              Снимок выбранного шаблона будет сохранён в задаче и не изменится
+              после редактирования шаблона.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="rounded px-2 py-1 text-slate-600 hover:bg-slate-100"
+            aria-label="Закрыть выбор шаблона"
+            @click="processClipID = null"
+          >
+            ×
+          </button>
+        </div>
+        <p v-if="templatesLoading" class="mt-4 text-slate-500">
+          Загружаем шаблоны…
+        </p>
+        <div v-else class="mt-4 grid gap-3 sm:grid-cols-2">
+          <button
+            v-for="template in templates"
+            :key="template.id"
+            type="button"
+            class="overflow-hidden rounded-lg border border-slate-200 text-left hover:border-violet-500 hover:ring-2 hover:ring-violet-100"
+            @click="chooseTemplate(template.id)"
+          >
+            <img
+              v-if="template.previewUrl"
+              :src="template.previewUrl"
+              :alt="`Превью шаблона ${template.name}`"
+              class="aspect-video w-full object-cover"
+            >
+            <div
+              v-else
+              class="flex aspect-video items-center justify-center bg-gradient-to-br from-violet-950 to-slate-900 text-sm text-violet-100"
+            >
+              9:16 · {{ template.config.layers.length }} слоёв
+            </div>
+            <div class="p-3">
+              <b>{{ template.name }}</b>
+              <p class="mt-1 text-sm text-slate-600">
+                {{ template.description || 'Без описания' }}
+              </p>
+            </div>
+          </button>
         </div>
       </section>
     </div>

@@ -51,6 +51,12 @@
 - [x] Header переведён на shadcn-vue Dropdown Menu с Lucide-шестерёнкой.
 - [x] Очередь process jobs отображается на карточке и блокирует повторный запуск.
 - [x] Отдельная страница готовых видео удалена: плеер и ссылки находятся в третьей колонке Pipeline.
+- [x] Добавлены PostgreSQL migrations для asset folders, assets, video templates и immutable template snapshots в process jobs.
+- [x] Добавлены S3-backed API и страницы для загрузки, preview, создания/переименования/перемещения/удаления ассетов и папок.
+- [x] Добавлен список шаблонов, duplicate/delete и визуальный редактор: слои, canvas 9:16, drag/resize, свойства, undo/redo и dirty warning.
+- [x] Pipeline требует выбрать шаблон; выбранная конфигурация и S3 keys ассетов фиксируются в task snapshot.
+- [x] Worker компилирует template layers в FFmpeg filter graph и сохраняет render по `jobID`, без перезаписи результатов других шаблонов.
+- [x] API/worker Docker containers пересобраны, migration применена; `/api/templates` возвращает default template.
 
 ## В работе
 

@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"time"
+
+	"github.com/finde-clip/finde-v2/back/internal/composition"
 )
 
 type Downloader interface {
@@ -20,6 +22,8 @@ type RenderInput struct {
 	SourcePath, SubtitlePath, OutputPath string
 	Width, Height, Blur                  int
 	Preset                               string
+	Composition                          composition.Config
+	AssetPaths                           map[string]string
 }
 type Job struct {
 	ID, ClipID, Type string

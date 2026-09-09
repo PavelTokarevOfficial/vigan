@@ -16,6 +16,8 @@ const primaryNavigation = [
 ]
 const menuNavigation = [
   { url: '/streamers', label: 'Стримеры' },
+  { url: '/templates', label: 'Шаблоны видео' },
+  { url: '/assets', label: 'Ассеты' },
   {
     url: 'http://localhost:9001/browser/finde-media',
     label: 'S3-хранилище',

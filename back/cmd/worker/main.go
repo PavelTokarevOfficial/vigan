@@ -112,7 +112,7 @@ func run(ctx context.Context, log *slog.Logger, j *processing.Jobs, files *media
 		if e = s.Put(ctx, "sources/"+job.ClipID+"/source.mp4", body, mime); e != nil {
 			return e
 		}
-		if e = record(ctx, files, s, job.ClipID, "source", "sources/"+job.ClipID+"/source.mp4", mime); e != nil {
+		if e = record(ctx, files, s, job.ClipID, job.ID, "source", "sources/"+job.ClipID+"/source.mp4", mime); e != nil {
 			return e
 		}
 		return j.Step(ctx, job.ID, job.ClipID, "downloaded", "downloaded", 100)
@@ -124,7 +124,7 @@ func run(ctx context.Context, log *slog.Logger, j *processing.Jobs, files *media
 		return e
 	}
 	log.Info("job step", "job_id", job.ID, "clip_id", job.ClipID, "step", "processing_queued", "progress", 20)
-	out, e := r.Process(ctx, processing.Input{ClipID: job.ClipID, ClipURL: job.ClipURL, Width: cfg.OutputWidth, Height: cfg.OutputHeight, Blur: cfg.BackgroundBlur, Preset: cfg.FFmpegPreset, Progress: func(step, status string, percent int) error {
+	out, e := r.Process(ctx, processing.Input{JobID: job.ID, ClipID: job.ClipID, ClipURL: job.ClipURL, Width: cfg.OutputWidth, Height: cfg.OutputHeight, Blur: cfg.BackgroundBlur, Preset: cfg.FFmpegPreset, TemplateSnapshot: job.TemplateSnapshot, Progress: func(step, status string, percent int) error {
 		log.Info("job step", "job_id", job.ID, "clip_id", job.ClipID, "step", step, "progress", percent)
 		return j.Step(ctx, job.ID, job.ClipID, step, status, percent)
 	}})
@@ -132,18 +132,18 @@ func run(ctx context.Context, log *slog.Logger, j *processing.Jobs, files *media
 		return e
 	}
 	for _, x := range []struct{ kind, key, mime string }{{"audio", out.AudioKey, "audio/wav"}, {"subtitle", out.SubtitleKey, "application/x-subrip"}, {"render", out.RenderKey, "video/mp4"}} {
-		if e = record(ctx, files, s, job.ClipID, x.kind, x.key, x.mime); e != nil {
+		if e = record(ctx, files, s, job.ClipID, job.ID, x.kind, x.key, x.mime); e != nil {
 			return e
 		}
 	}
 	log.Info("job step", "job_id", job.ID, "clip_id", job.ClipID, "step", "rendered", "progress", 90)
 	return j.Step(ctx, job.ID, job.ClipID, "rendered", "rendering", 90)
 }
-func record(ctx context.Context, f *media.Files, s *storage.S3, clipID, kind, key, mime string) error {
+func record(ctx context.Context, f *media.Files, s *storage.S3, clipID, jobID, kind, key, mime string) error {
 	o, e := s.Get(ctx, key)
 	if e != nil {
 		return e
 	}
 	defer o.Body.Close()
-	return f.Upsert(ctx, clipID, kind, key, mime, o.Size)
+	return f.Upsert(ctx, clipID, jobID, kind, key, mime, o.Size)
 }

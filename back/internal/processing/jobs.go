@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-type ClaimedJob struct{ ID, ClipID, Type, ClipURL string }
+type ClaimedJob struct {
+	ID, ClipID, Type, ClipURL string
+	TemplateSnapshot          []byte
+}
 type Jobs struct{ db *pgxpool.Pool }
 
 type Info struct {
@@ -54,7 +57,7 @@ func (j *Jobs) Claim(ctx context.Context) (ClaimedJob, error) {
 		UPDATE processing_jobs j SET status='running',attempts=attempts+1,started_at=now(),updated_at=now()
 		FROM next JOIN clips c ON c.id=next.clip_id
 		WHERE j.id=next.id
-		RETURNING j.id,j.clip_id,j.type,c.twitch_url`).Scan(&x.ID, &x.ClipID, &x.Type, &x.ClipURL)
+		RETURNING j.id,j.clip_id,j.type,c.twitch_url,j.template_snapshot`).Scan(&x.ID, &x.ClipID, &x.Type, &x.ClipURL, &x.TemplateSnapshot)
 	return x, e
 }
 func (j *Jobs) Step(ctx context.Context, id, clipID, step, status string, progress int) error {

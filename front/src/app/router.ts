@@ -9,5 +9,14 @@ export default createRouter({
     { path: '/search', component: () => import('../pages/ClipsPage.vue') },
     { path: '/clips', redirect: '/search' },
     { path: '/pipeline', component: () => import('../pages/PipelinePage.vue') },
+    { path: '/assets', component: () => import('../pages/AssetsPage.vue') },
+    {
+      path: '/templates',
+      component: () => import('../pages/TemplatesPage.vue'),
+    },
+    {
+      path: '/templates/:id',
+      component: () => import('../pages/TemplateEditorPage.vue'),
+    },
   ],
 })

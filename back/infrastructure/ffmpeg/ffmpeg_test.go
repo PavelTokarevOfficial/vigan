@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/finde-clip/finde-v2/back/internal/composition"
 	"github.com/finde-clip/finde-v2/back/internal/processing"
 )
 
@@ -78,5 +79,12 @@ func TestEscapeFilterPath(t *testing.T) {
 	got := escapeFilterPath("/tmp/it's: a\\file.srt")
 	if got != "/tmp/it\\'s\\: a\\\\file.srt" {
 		t.Fatalf("unexpected escaped path %q", got)
+	}
+}
+
+func TestScaleFilterRoundsOddContainDimensionsDown(t *testing.T) {
+	filter := scaleFilter(composition.Layer{Width: 1080, Height: 607, Fit: "contain", Opacity: 1})
+	if !strings.Contains(filter, "pad=1080:606") {
+		t.Fatalf("odd dimension was not normalized: %s", filter)
 	}
 }
