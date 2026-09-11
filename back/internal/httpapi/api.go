@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 type API struct {
@@ -96,12 +97,45 @@ func (a *API) readyVideos(w http.ResponseWriter, r *http.Request) {
 	write(w, 200, map[string]any{"data": x})
 }
 func (a *API) remoteClips(w http.ResponseWriter, r *http.Request) {
-	x, e := a.clips.Remote(r.Context(), chi.URLParam(r, "id"))
+	startedAt, endedAt, e := clipWindow(r)
+	if e != nil {
+		fail(w, 400, e)
+		return
+	}
+	x, e := a.clips.Remote(r.Context(), chi.URLParam(r, "id"), startedAt, endedAt)
 	if e != nil {
 		fail(w, 422, e)
 		return
 	}
 	write(w, 200, map[string]any{"data": x})
+}
+func clipWindow(r *http.Request) (time.Time, time.Time, error) {
+	const dateLayout = "2006-01-02"
+	now := time.Now().UTC()
+	startedRaw := r.URL.Query().Get("startedAt")
+	endedRaw := r.URL.Query().Get("endedAt")
+	if startedRaw == "" && endedRaw == "" {
+		return now.AddDate(0, 0, -7), now, nil
+	}
+	if startedRaw == "" || endedRaw == "" {
+		return time.Time{}, time.Time{}, errText("startedAt and endedAt are required together")
+	}
+	startedAt, err := time.Parse(dateLayout, startedRaw)
+	if err != nil {
+		return time.Time{}, time.Time{}, errText("startedAt must use YYYY-MM-DD")
+	}
+	endedDate, err := time.Parse(dateLayout, endedRaw)
+	if err != nil {
+		return time.Time{}, time.Time{}, errText("endedAt must use YYYY-MM-DD")
+	}
+	endedAt := endedDate.AddDate(0, 0, 1)
+	if endedAt.After(now) {
+		endedAt = now
+	}
+	if !startedAt.Before(endedAt) {
+		return time.Time{}, time.Time{}, errText("startedAt must be before endedAt")
+	}
+	return startedAt, endedAt, nil
 }
 
 type importInput struct {

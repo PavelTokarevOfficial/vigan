@@ -7,6 +7,7 @@ import (
 	"github.com/finde-clip/finde-v2/back/internal/videotemplate"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"time"
 )
 
 type Service struct {
@@ -135,7 +136,7 @@ func (s *Service) Retry(ctx context.Context, id string) error {
 func New(db *pgxpool.Pool, t *twitch.Client, templates *videotemplate.Service) *Service {
 	return &Service{db: db, twitch: t, templates: templates}
 }
-func (s *Service) Remote(ctx context.Context, streamerID string) ([]twitch.Clip, error) {
+func (s *Service) Remote(ctx context.Context, streamerID string, startedAt, endedAt time.Time) ([]twitch.Clip, error) {
 	var tid, login string
 	if e := s.db.QueryRow(ctx, "SELECT COALESCE(twitch_user_id,''),twitch_login FROM streamers WHERE id=$1", streamerID).Scan(&tid, &login); e != nil {
 		return nil, e
@@ -151,7 +152,7 @@ func (s *Service) Remote(ctx context.Context, streamerID string) ([]twitch.Clip,
 			return nil, e
 		}
 	}
-	clips, e := s.twitch.Clips(ctx, tid)
+	clips, e := s.twitch.Clips(ctx, tid, startedAt, endedAt)
 	if e != nil {
 		return nil, e
 	}

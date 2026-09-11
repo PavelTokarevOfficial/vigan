@@ -97,12 +97,18 @@ func (c *Client) tokenFor(ctx context.Context) (string, error) {
 	c.expires = time.Now().Add(time.Duration(x.Expires-60) * time.Second)
 	return c.token, nil
 }
-func (c *Client) Clips(ctx context.Context, broadcasterID string) ([]Clip, error) {
+func (c *Client) Clips(ctx context.Context, broadcasterID string, startedAt, endedAt time.Time) ([]Clip, error) {
 	t, e := c.tokenFor(ctx)
 	if e != nil {
 		return nil, e
 	}
-	u := "https://api.twitch.tv/helix/clips?broadcaster_id=" + url.QueryEscape(broadcasterID) + "&first=100"
+	query := url.Values{
+		"broadcaster_id": {broadcasterID},
+		"ended_at":       {endedAt.UTC().Format(time.RFC3339)},
+		"first":          {"100"},
+		"started_at":     {startedAt.UTC().Format(time.RFC3339)},
+	}
+	u := "https://api.twitch.tv/helix/clips?" + query.Encode()
 	r, e := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if e != nil {
 		return nil, e
